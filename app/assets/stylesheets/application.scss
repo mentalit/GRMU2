@@ -13,3 +13,14 @@
  *= require_tree .
  *= require_self
  */
+
+@import "bootstrap";
+
+body {
+background-color: red;
+padding: 5vh;
+}
+
+.card {
+	margin: .5vh;
+}

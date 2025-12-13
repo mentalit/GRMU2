@@ -1,0 +1,42 @@
+<%= form_with(model: [@aisle, section]) do |form| %>
+  <% if section.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(section.errors.count, "error") %> prohibited this section from being saved:</h2>
+
+      <ul>
+        <% section.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :section_num, style: "display: block" %>
+    <%= form.number_field :section_num %>
+  </div>
+
+  <div>
+    <%= form.label :section_depth, style: "display: block" %>
+    <%= form.text_field :section_depth %>
+  </div>
+
+  <div>
+    <%= form.label :section_height, style: "display: block" %>
+    <%= form.text_field :section_height %>
+  </div>
+
+  <div>
+    <%= form.label :section_width, style: "display: block" %>
+    <%= form.text_field :section_width %>
+  </div>
+
+  <div>
+    <%= form.label :aisle_id, style: "display: block" %>
+    <%= form.text_field :aisle_id %>
+  </div>
+
+  <div> 
+    <%= form.submit %>
+  </div>
+<% end %>

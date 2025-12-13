@@ -1,0 +1,15 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  section_num: 1
+  section_depth: 1.5
+  section_height: 1.5
+  section_width: 1.5
+  aisle: one
+
+two:
+  section_num: 1
+  section_depth: 1.5
+  section_height: 1.5
+  section_width: 1.5
+  aisle: two

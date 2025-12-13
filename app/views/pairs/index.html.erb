@@ -2,9 +2,10 @@
 
 <h1>Pairs</h1>
 
-<div id="pairs">
+
   <% @pairs.each do |pair| %>
-    <%= render pair %>
+  <div class="card col-2">
+      <%= render pair %>
     <p>
       <%= link_to "Show this pair", pair %>
     </p>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_12_13_010705) do
+ActiveRecord::Schema[7.1].define(version: 2025_12_13_024611) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -74,6 +74,17 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_13_010705) do
     t.index ["store_id"], name: "index_pairs_on_store_id"
   end
 
+  create_table "sections", force: :cascade do |t|
+    t.integer "section_num"
+    t.float "section_depth"
+    t.float "section_height"
+    t.float "section_width"
+    t.bigint "aisle_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["aisle_id"], name: "index_sections_on_aisle_id"
+  end
+
   create_table "stores", force: :cascade do |t|
     t.string "store_loc"
     t.integer "store_num"
@@ -84,4 +95,5 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_13_010705) do
   add_foreign_key "aisles", "pairs"
   add_foreign_key "articles", "stores"
   add_foreign_key "pairs", "stores"
+  add_foreign_key "sections", "aisles"
 end

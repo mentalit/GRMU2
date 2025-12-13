@@ -1,14 +1,26 @@
 <p style="color: green"><%= notice %></p>
 
-<%= link_to "Import Articles",
-            new_import_store_articles_path(@store),
-            class: "btn btn-primary" %>
 
-<%= render @store %>
+<div class="row">
+  <div class="col-2">
+    <div class="card col-12">
+      <%= render @store %>
 
-<div>
-  <%= link_to "Edit this store", edit_store_path(@store) %> |
-  <%= link_to "Back to stores", stores_path %>
 
-  <%= button_to "Destroy this store", @store, method: :delete %>
+
+      <div>
+        <%= link_to "Edit this store", edit_store_path(@store) %> |
+        <%= link_to "Back to stores", stores_path %>
+
+        <%= button_to "Destroy this store", @store, method: :delete %>
+      </div>
+    </div>
+
+  <%= link_to "Import Articles",
+              new_import_store_articles_path(@store),
+              class: "btn btn-primary" %>
+
+    </div>
+
+    
 </div>

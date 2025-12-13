@@ -1,5 +1,7 @@
 <p style="color: green"><%= notice %></p>
 
+
+<div class="card col-2">
 <%= render @pair %>
 
 <div>
@@ -7,4 +9,5 @@
   <%= link_to "Back to pairs", store_pairs_path(@pair.store) %>
 
   <%= button_to "Destroy this pair", @pair, method: :delete %>
+</div>
 </div>
