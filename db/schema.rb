@@ -1,0 +1,87 @@
+# This file is auto-generated from the current state of the database. Instead
+# of editing this file, please use the migrations feature of Active Record to
+# incrementally modify your database, and then regenerate this schema definition.
+#
+# This file is the source Rails uses to define your schema when running `bin/rails
+# db:schema:load`. When creating a new database, `bin/rails db:schema:load` tends to
+# be faster and is potentially less error prone than running all of your
+# migrations from scratch. Old migrations may fail to apply correctly if those
+# migrations use external dependencies or application code.
+#
+# It's strongly recommended that you check this file into your version control system.
+
+ActiveRecord::Schema[7.1].define(version: 2025_12_13_010705) do
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
+  create_table "aisles", force: :cascade do |t|
+    t.string "aisle_num"
+    t.float "aisle_height"
+    t.float "aisle_depth"
+    t.float "aisle_section_width"
+    t.integer "aisle_sections"
+    t.bigint "pair_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["pair_id"], name: "index_aisles_on_pair_id"
+  end
+
+  create_table "articles", force: :cascade do |t|
+    t.integer "artno"
+    t.string "artname_unicode"
+    t.integer "baseonhand"
+    t.integer "weight_g"
+    t.string "slid_h"
+    t.string "ssd"
+    t.string "eds"
+    t.string "hfb"
+    t.float "expsale"
+    t.string "pa"
+    t.string "salesmethod"
+    t.integer "rssq"
+    t.string "sal_sol_indic"
+    t.integer "mpq"
+    t.integer "palq"
+    t.integer "dt"
+    t.float "cp_height"
+    t.float "cp_length"
+    t.float "cp_width"
+    t.float "cp_diameter"
+    t.float "cp_weight_gross"
+    t.float "ul_height_gross"
+    t.float "ul_length_gross"
+    t.float "ul_width_gross"
+    t.float "ul_diamter"
+    t.string "new_assq"
+    t.string "new_loc"
+    t.integer "split_rssq"
+    t.bigint "store_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "planned"
+    t.index ["store_id"], name: "index_articles_on_store_id"
+  end
+
+  create_table "pairs", force: :cascade do |t|
+    t.string "pair_nums"
+    t.float "pair_depth"
+    t.float "pair_height"
+    t.float "pair_section_width"
+    t.integer "pair_sections"
+    t.bigint "store_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["store_id"], name: "index_pairs_on_store_id"
+  end
+
+  create_table "stores", force: :cascade do |t|
+    t.string "store_loc"
+    t.integer "store_num"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  add_foreign_key "aisles", "pairs"
+  add_foreign_key "articles", "stores"
+  add_foreign_key "pairs", "stores"
+end

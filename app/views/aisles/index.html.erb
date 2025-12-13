@@ -1,0 +1,14 @@
+<p style="color: green"><%= notice %></p>
+
+<h1>Aisles</h1>
+
+<div id="aisles">
+  <% @aisles.each do |aisle| %>
+    <%= render aisle %>
+    <p>
+      <%= link_to "Show this aisle", aisle %>
+    </p>
+  <% end %>
+</div>
+
+<%= link_to "New aisle", new_pair_aisle_path %>

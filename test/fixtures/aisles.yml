@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  aisle_num: MyString
+  aisle_height: 1.5
+  aisle_depth: 1.5
+  aisle_section_width: 1.5
+  aisle_sections: 1
+  pair: one
+
+two:
+  aisle_num: MyString
+  aisle_height: 1.5
+  aisle_depth: 1.5
+  aisle_section_width: 1.5
+  aisle_sections: 1
+  pair: two

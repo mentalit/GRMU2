@@ -1,0 +1,2 @@
+json.extract! article, :id, :artno, :artname_unicode, :baseonhand, :weight_g, :slid_h, :ssd, :eds, :hfb, :expsale, :pa, :salesmethod, :rssq, :sal_sol_indic, :mpq, :palq, :dt, :cp_height, :cp_length, :cp_width, :cp_diameter, :cp_weight_gross, :ul_height_gross, :ul_length_gross, :ul_width_gross, :ul_diamter, :new_assq, :new_loc, :split_rssq, :store_id, :created_at, :updated_at
+json.url article_url(article, format: :json)

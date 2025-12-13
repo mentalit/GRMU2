@@ -1,0 +1,17 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  pair_nums: MyString
+  pair_depth: 1.5
+  pair_height: 1.5
+  pair_section_width: 1.5
+  pair_sections: 1
+  store: one
+
+two:
+  pair_nums: MyString
+  pair_depth: 1.5
+  pair_height: 1.5
+  pair_section_width: 1.5
+  pair_sections: 1
+  store: two

@@ -1,0 +1,19 @@
+<!-- app/views/articles/new_import.html.erb -->
+<h2>Import Articles for <%= @store.store_loc %></h2>
+
+<%= form_with url: import_store_articles_path(@store),
+              multipart: true,
+              local: true do %>
+
+  <div>
+    <%= label_tag :csv_file_1, "CSV File 1" %>
+    <%= file_field_tag :csv_file_1, required: true %>
+  </div>
+
+  <div>
+    <%= label_tag :csv_file_2, "CSV File 2" %>
+    <%= file_field_tag :csv_file_2, required: true %>
+  </div>
+
+  <%= submit_tag "Import CSVs" %>
+<% end %>

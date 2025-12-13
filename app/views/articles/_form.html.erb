@@ -1,0 +1,167 @@
+<%= form_with(model: [@store, article]) do |form| %>
+  <% if article.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(article.errors.count, "error") %> prohibited this article from being saved:</h2>
+
+      <ul>
+        <% article.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :artno, style: "display: block" %>
+    <%= form.number_field :artno %>
+  </div>
+
+  <div>
+    <%= form.label :artname_unicode, style: "display: block" %>
+    <%= form.text_field :artname_unicode %>
+  </div>
+
+  <div>
+    <%= form.label :baseonhand, style: "display: block" %>
+    <%= form.number_field :baseonhand %>
+  </div>
+
+  <div>
+    <%= form.label :weight_g, style: "display: block" %>
+    <%= form.number_field :weight_g %>
+  </div>
+
+  <div>
+    <%= form.label :slid_h, style: "display: block" %>
+    <%= form.text_field :slid_h %>
+  </div>
+
+  <div>
+    <%= form.label :ssd, style: "display: block" %>
+    <%= form.text_field :ssd %>
+  </div>
+
+  <div>
+    <%= form.label :eds, style: "display: block" %>
+    <%= form.text_field :eds %>
+  </div>
+
+  <div>
+    <%= form.label :hfb, style: "display: block" %>
+    <%= form.text_field :hfb %>
+  </div>
+
+  <div>
+    <%= form.label :expsale, style: "display: block" %>
+    <%= form.text_field :expsale %>
+  </div>
+
+  <div>
+    <%= form.label :pa, style: "display: block" %>
+    <%= form.text_field :pa %>
+  </div>
+
+  <div>
+    <%= form.label :salesmethod, style: "display: block" %>
+    <%= form.text_field :salesmethod %>
+  </div>
+
+  <div>
+    <%= form.label :rssq, style: "display: block" %>
+    <%= form.number_field :rssq %>
+  </div>
+
+  <div>
+    <%= form.label :sal_sol_indic, style: "display: block" %>
+    <%= form.text_field :sal_sol_indic %>
+  </div>
+
+  <div>
+    <%= form.label :mpq, style: "display: block" %>
+    <%= form.number_field :mpq %>
+  </div>
+
+  <div>
+    <%= form.label :palq, style: "display: block" %>
+    <%= form.number_field :palq %>
+  </div>
+
+  <div>
+    <%= form.label :dt, style: "display: block" %>
+    <%= form.number_field :dt %>
+  </div>
+
+  <div>
+    <%= form.label :cp_height, style: "display: block" %>
+    <%= form.text_field :cp_height %>
+  </div>
+
+  <div>
+    <%= form.label :cp_length, style: "display: block" %>
+    <%= form.text_field :cp_length %>
+  </div>
+
+  <div>
+    <%= form.label :cp_width, style: "display: block" %>
+    <%= form.text_field :cp_width %>
+  </div>
+
+  <div>
+    <%= form.label :cp_diameter, style: "display: block" %>
+    <%= form.text_field :cp_diameter %>
+  </div>
+
+  <div>
+    <%= form.label :cp_weight_gross, style: "display: block" %>
+    <%= form.text_field :cp_weight_gross %>
+  </div>
+
+  <div>
+    <%= form.label :ul_height_gross, style: "display: block" %>
+    <%= form.text_field :ul_height_gross %>
+  </div>
+
+  <div>
+    <%= form.label :ul_length_gross, style: "display: block" %>
+    <%= form.text_field :ul_length_gross %>
+  </div>
+
+  <div>
+    <%= form.label :ul_width_gross, style: "display: block" %>
+    <%= form.text_field :ul_width_gross %>
+  </div>
+
+  <div>
+    <%= form.label :ul_diamter, style: "display: block" %>
+    <%= form.text_field :ul_diamter %>
+  </div>
+
+  <div>
+    <%= form.label :new_assq, style: "display: block" %>
+    <%= form.text_field :new_assq %>
+  </div>
+
+  <div>
+    <%= form.label :new_loc, style: "display: block" %>
+    <%= form.text_field :new_loc %>
+  </div>
+
+  <div>
+    <%= form.label :split_rssq, style: "display: block" %>
+    <%= form.number_field :split_rssq %>
+  </div>
+
+  <div class="field">
+    <%= form.label :planned %>
+    <%= form.check_box :planned %>
+  </div>
+
+  <div>
+    <%= form.label :store_id, style: "display: block" %>
+    <%= form.text_field :store_id %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>

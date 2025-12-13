@@ -1,0 +1,47 @@
+<%= form_with(model: [ @pair, aisle]) do |form| %>
+  <% if aisle.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(aisle.errors.count, "error") %> prohibited this aisle from being saved:</h2>
+
+      <ul>
+        <% aisle.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :aisle_num, style: "display: block" %>
+    <%= form.text_field :aisle_num %>
+  </div>
+
+  <div>
+    <%= form.label :aisle_height, style: "display: block" %>
+    <%= form.text_field :aisle_height %>
+  </div>
+
+  <div>
+    <%= form.label :aisle_depth, style: "display: block" %>
+    <%= form.text_field :aisle_depth %>
+  </div>
+
+  <div>
+    <%= form.label :aisle_section_width, style: "display: block" %>
+    <%= form.text_field :aisle_section_width %>
+  </div>
+
+  <div>
+    <%= form.label :aisle_sections, style: "display: block" %>
+    <%= form.number_field :aisle_sections %>
+  </div>
+
+  <div>
+    <%= form.label :pair_id, style: "display: block" %>
+    <%= form.text_field :pair_id %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>

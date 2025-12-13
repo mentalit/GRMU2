@@ -1,0 +1,63 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  artno: 1
+  artname_unicode: MyString
+  baseonhand: 1
+  weight_g: 1
+  slid_h: MyString
+  ssd: MyString
+  eds: MyString
+  hfb: MyString
+  expsale: 1.5
+  pa: MyString
+  salesmethod: MyString
+  rssq: 1
+  sal_sol_indic: MyString
+  mpq: 1
+  palq: 1
+  dt: 1
+  cp_height: 1.5
+  cp_length: 1.5
+  cp_width: 1.5
+  cp_diameter: 1.5
+  cp_weight_gross: 1.5
+  ul_height_gross: 1.5
+  ul_length_gross: 1.5
+  ul_width_gross: 1.5
+  ul_diamter: 1.5
+  new_assq: MyString
+  new_loc: MyString
+  split_rssq: 1
+  store: one
+
+two:
+  artno: 1
+  artname_unicode: MyString
+  baseonhand: 1
+  weight_g: 1
+  slid_h: MyString
+  ssd: MyString
+  eds: MyString
+  hfb: MyString
+  expsale: 1.5
+  pa: MyString
+  salesmethod: MyString
+  rssq: 1
+  sal_sol_indic: MyString
+  mpq: 1
+  palq: 1
+  dt: 1
+  cp_height: 1.5
+  cp_length: 1.5
+  cp_width: 1.5
+  cp_diameter: 1.5
+  cp_weight_gross: 1.5
+  ul_height_gross: 1.5
+  ul_length_gross: 1.5
+  ul_width_gross: 1.5
+  ul_diamter: 1.5
+  new_assq: MyString
+  new_loc: MyString
+  split_rssq: 1
+  store: two

@@ -1,0 +1,47 @@
+<%= form_with(model: [ @store, pair ]) do |form| %>
+  <% if pair.errors.any? %>
+    <div style="color: red">
+      <h2><%= pluralize(pair.errors.count, "error") %> prohibited this pair from being saved:</h2>
+
+      <ul>
+        <% pair.errors.each do |error| %>
+          <li><%= error.full_message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div>
+    <%= form.label :pair_nums, style: "display: block" %>
+    <%= form.text_field :pair_nums %>
+  </div>
+
+  <div>
+    <%= form.label :pair_depth, style: "display: block" %>
+    <%= form.text_field :pair_depth %>
+  </div>
+
+  <div>
+    <%= form.label :pair_height, style: "display: block" %>
+    <%= form.text_field :pair_height %>
+  </div>
+
+  <div>
+    <%= form.label :pair_section_width, style: "display: block" %>
+    <%= form.text_field :pair_section_width %>
+  </div>
+
+  <div>
+    <%= form.label :pair_sections, style: "display: block" %>
+    <%= form.number_field :pair_sections %>
+  </div>
+
+  <div>
+    <%= form.label :store_id, style: "display: block" %>
+    <%= form.text_field :store_id %>
+  </div>
+
+  <div>
+    <%= form.submit %>
+  </div>
+<% end %>

@@ -1,0 +1,9 @@
+<h1>New aisle</h1>
+
+<%= render "form", aisle: @aisle %>
+
+<br>
+
+<div>
+  <%= link_to "Back to aisles", pair_aisles_path(@aisle.pair) %>
+</div>

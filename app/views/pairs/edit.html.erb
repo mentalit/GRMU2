@@ -1,0 +1,10 @@
+<h1>Editing pair</h1>
+
+<%= render "form", pair: @pair %>
+
+<br>
+
+<div>
+  <%= link_to "Show this pair", @pair %> |
+  <%= link_to "Back to pairs", store_pairs_path(@pair.store) %>
+</div>
