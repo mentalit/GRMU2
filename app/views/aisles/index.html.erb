@@ -1,14 +1,30 @@
 <p style="color: green"><%= notice %></p>
 
-<h1>Aisles</h1>
+<div class="row">
+  <div class="col-3">
+    <h1>Aisles</h1>
 
-<div class="card col-2">
-  <% @aisles.each do |aisle| %>
-    <%= render aisle %>
-    <p>
-      <%= link_to "Show this aisle", aisle %>
-    </p>
-  <% end %>
+  </div>
+
+  <div class="col-3">
+    <%= link_to "New aisle", new_pair_aisle_path %>
+
+  </div>
+
 </div>
 
-<%= link_to "New aisle", new_pair_aisle_path %>
+<div class="row">
+  
+    <% @aisles.each do |aisle| %>
+<div class="card col-2 border-secondary ">
+      <%= render aisle %>
+      <p>
+        <%= link_to "Show this aisle", aisle %>
+      </p>
+      </div>
+    <% end %>
+    
+  </div>
+
+
+

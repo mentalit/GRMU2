@@ -1,11 +1,21 @@
 <p style="color: green"><%= notice %></p>
 
-<h1>Stores</h1>
+<div class="row">
+  <div class="col-2">
+    <h1>Stores</h1>
+  </div>
+
+  <div class="col-2">
+    <%= link_to "New store", new_store_path %>
+
+  </div>
+
+</div>
 
 
 <div class="row">
   <% @stores.each do |store| %>
-   <div class="card col-2">
+   <div class="card col-2 border-secondary mb-3">
     <%= render store %>
   
      
@@ -15,4 +25,3 @@
   <% end %>
 
 </div>
-<%= link_to "New store", new_store_path %>

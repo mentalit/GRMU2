@@ -1,32 +1,30 @@
 <div id="<%= dom_id pair %>">
   <p>
-    <strong>Pair nums:</strong>
-    <%= pair.pair_nums %>
+    <strong>Aisles:</strong>
+    <%= link_to pair.pair_nums, pair %>
   </p>
 
+  
   <p>
-    <strong>Pair depth:</strong>
+    <strong>Total Depth:</strong>
     <%= pair.pair_depth %>
   </p>
 
   <p>
-    <strong>Pair height:</strong>
+    <strong>Height:</strong>
     <%= pair.pair_height %>
   </p>
 
   <p>
-    <strong>Pair section width:</strong>
+    <strong>Section Width:</strong>
     <%= pair.pair_section_width %>
   </p>
 
   <p>
-    <strong>Pair sections:</strong>
+    <strong>Sections:</strong>
     <%= pair.pair_sections %>
   </p>
 
-  <p>
-    <strong>Store:</strong>
-    <%= pair.store_id %>
-  </p>
+  
 
 </div>

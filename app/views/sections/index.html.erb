@@ -1,15 +1,14 @@
 <p style="color: green"><%= notice %></p>
 
-<h1><%= @aisle.aisle_num  %></h1>
+<h1>Aisle <%=  @aisle.aisle_num  %></h1>
 <h1>Sections</h1>
 
-<div id="sections">
   <% @sections.each do |section| %>
+  <div class="card col-12">
     <%= render section %>
-    <p>
+   
       <%= link_to "Show this section", section %>
-    </p>
+    </div>
   <% end %>
-</div>
 
 <%= link_to "New section", new_aisle_section_path %>

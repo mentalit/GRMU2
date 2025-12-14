@@ -10,7 +10,7 @@ class Pair < ApplicationRecord
     aisle_numbers.each do |num|
       aisles.create!(
         aisle_num: num,
-        aisle_depth: (pair_depth/2) ,
+        aisle_depth: aisle_numbers.count == 1 ? pair_depth : pair_depth / 2,
         aisle_height: pair_height,
         aisle_section_width: pair_section_width,
         aisle_sections: pair_sections 

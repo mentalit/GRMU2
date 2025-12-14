@@ -4,7 +4,7 @@ class PairsController < ApplicationController
 
   # GET /pairs or /pairs.json
   def index
-    @pairs = @store.pairs
+    @pairs = @store.pairs.sort_by { |x| x.pair_nums.to_i }
   end
 
   # GET /pairs/1 or /pairs/1.json
