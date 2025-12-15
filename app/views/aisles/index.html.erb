@@ -18,9 +18,11 @@
     <% @aisles.each do |aisle| %>
 <div class="card col-2 border-secondary ">
       <%= render aisle %>
-      <p>
+      
         <%= link_to "Show this aisle", aisle %>
-      </p>
+
+        <%= link_to "Sections", aisle_sections_path(aisle) %>
+    
       </div>
     <% end %>
     

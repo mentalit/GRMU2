@@ -1,6 +1,6 @@
 class SectionsController < ApplicationController
   before_action :set_section, only: %i[ show edit update destroy ]
-  before_action :get_aisle, only: %i[ new create index]
+  before_action :get_aisle, only: %i[ new create index plan]
 
   # GET /sections or /sections.json
   def index

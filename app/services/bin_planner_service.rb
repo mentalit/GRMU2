@@ -24,14 +24,22 @@ class BinPlannerService
     # ----------------------------------------------------------------------
     # 1. Initialization and Cleanup (Common Logic)
     # ----------------------------------------------------------------------
+
+   
+
+   end
+
+
+
+
     
     # Unassign all articles currently in the aisle before running new planning
     # ASSUMPTION: Articles are linked to a Section, and Sections are linked to an Aisle.
     # The current Article model only has belongs_to :store, but for planning to work,
     # it must track location. We assume Article has a :section_id and :new_loc column.
     Article.joins(section: :aisle)
-           .where(aisle: @aisle)
-           .update_all(planned: false, new_loc: nil, section_id: nil, level_number: nil) 
+       .where(sections: { aisle_id: @aisle.id }) # OPTION 1: Explicitly join on sections/aisles (Safest and most verbose)
+       .update_all(planned: false, new_loc: nil, section_id: nil, level_number: nil)
 
     # ----------------------------------------------------------------------
     # 2. Planning Dispatch
