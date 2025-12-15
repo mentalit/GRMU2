@@ -1,14 +1,155 @@
+<%# app/views/sections/index.html.erb %>
+
 <p style="color: green"><%= notice %></p>
 
-<h1>Aisle <%=  @aisle.aisle_num  %></h1>
+<h1>Aisle <%= @aisle.aisle_num %></h1>
+
+<h2>Plan Bin Layout</h2>
+
+<%# The form posts to the 'plan' action in the SectionsController. %>
+<%# We use the aisle_sections_plan_path helper which requires the @aisle object. %>
+<%= form_tag plan_aisle_sections_path(@aisle), method: :post do %>
+
+  <fieldset>
+    <legend>Select Planning Mode</legend>
+    
+    <%# Mode Radio Buttons %>
+    <% ['non_opul', 'opul', 'countertop', 'voss', 'pallet'].each do |mode| %>
+      <label>
+        <%= radio_button_tag :mode, "#{mode}_mode", (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')) %>
+        <%= mode.humanize %>
+      </label>
+    <% end %>
+  </fieldset>
+
+  <fieldset>
+    <label for="name_prefix">Name starts with (optional)</label>
+    <%= text_field_tag :name_prefix, params[:name_prefix], placeholder: "e.g., SE" %>
+  </fieldset>
+
+  <fieldset>
+    <legend>Filter Articles By</legend>
+    
+    <%# Filter Type Radio Buttons (PA or HFB) %>
+    <label>
+      <%= radio_button_tag :filter_type, "PA", params[:filter_type].blank? || params[:filter_type] == "PA" %> PA
+    </label>
+    <label>
+      <%= radio_button_tag :filter_type, "HFB", params[:filter_type] == "HFB" %> HFB
+    </label>
+    
+    <%# Filter Value Input %>
+    <%= text_field_tag :filter_value, params[:filter_value], placeholder: "Enter PA or HFB value" %>
+  </fieldset>
+
+  <fieldset>
+    <legend>Extra Filters</legend>
+    
+    <%# Low EXPSALE Checkbox %>
+    <label>
+      <%= check_box_tag :low_expsale_only, '1', params[:low_expsale_only].present? %>
+      Only plan articles where <code>EXPSALE &lt; 5</code> <br>
+    </label> <br>
+
+    <%# High EXPSALE Checkbox %>
+    <label>
+      <%= check_box_tag :high_expsale_only, '1', params[:high_expsale_only].present?, id: 'high_expsale_only' %>
+      Only plan articles where <code>EXPSALE &gt; 5</code>
+    </label>
+
+    <%# High EXPSALE Sub-Filters (Hidden by default) %>
+    <div id="high-expsale-subfilters" style="margin-top:6px; display: <%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
+      <label style="display:inline-flex; gap:6px; align-items:center;">
+        <%= check_box_tag :high_expsale_require_dt1, '1', params[:high_expsale_require_dt1].present? %>
+        Also require <code>DT = 1</code>
+      </label>
+    </div>
+  </fieldset>
+
+  <%# VOSS Gates (Hidden by default, show if VOSS mode is checked) %>
+  <% is_voss = params[:mode] == 'voss_mode' %>
+  <fieldset id="voss-filters" style="display: <%= is_voss ? 'block' : 'none' %>;">
+    <legend>VOSS Gates (optional)</legend>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <label>Max CP_HEIGHT (mm)
+        <%= number_field_tag :voss_cp_height_max, params[:voss_cp_height_max] || 508, step: 0.01 %>
+      </label>
+      <label>Max CP_LENGTH (mm)
+        <%= number_field_tag :voss_cp_length_max, params[:voss_cp_length_max] || 1016, step: 0.01 %>
+      </label>
+      <label>Max CP_WIDTH (mm)
+        <%= number_field_tag :voss_cp_width_max, params[:voss_cp_width_max] || 1016, step: 0.01 %>
+      </label>
+      <label>Max RSSQ
+        <%= number_field_tag :voss_rssq_max, params[:voss_rssq_max] || 10, step: 1 %>
+      </label>
+      <label>Max EXPSALE
+        <%= number_field_tag :voss_expsale_max, params[:voss_expsale_max] || 5.0, step: 0.01 %>
+      </label>
+      <label>Max WEIGHT_G (g)
+        <%= number_field_tag :voss_weight_g_max, params[:voss_weight_g_max] || 4536, step: 1 %>
+      </label>
+    </div>
+    <p style="margin:6px 0 0; font-size:0.9em; opacity:.8">
+      Items must be DT=0 and meet all provided maxima (≤). PA/HFB filter above still applies.
+    </p>
+  </fieldset>
+
+  <%= submit_tag "Run Bin Planner" %>
+<% end %>
+
+
+<hr>
+
 <h1>Sections</h1>
 
-  <% @sections.each do |section| %>
+<% @sections.each do |section| %>
   <div class="card col-12">
     <%= render section %>
-   
-      <%= link_to "Show this section", section %>
-    </div>
-  <% end %>
+    
+    <%= link_to "Show this section", section %>
+  </div>
+<% end %>
 
-<%= link_to "New section", new_aisle_section_path %>
+<%= link_to "New section", new_aisle_section_path(@aisle) %>
+
+<%# -------------------------------------------------------------------- %>
+<%# JAVASCRIPT FOR DYNAMIC FILTER BEHAVIOR (VOSS & EXPSALE) %>
+<%# -------------------------------------------------------------------- %>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- VOSS Filter Toggle ---
+    function toggleVossFilters() {
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const vossFs = document.getElementById('voss-filters');
+      const show = (mode === 'voss_mode');
+      vossFs.style.display = show ? 'block' : 'none';
+      vossFs.querySelectorAll('input').forEach(inp => inp.disabled = !show);
+    }
+    
+    // Attach listener to all mode radio buttons
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener('change', toggleVossFilters);
+    });
+
+    // Initial check on load
+    toggleVossFilters();
+
+
+    // --- High EXPSALE Sub-Filter Toggle ---
+    const highExpsaleCheckbox = document.getElementById('high_expsale_only');
+    const highExpsaleSubfilters = document.getElementById('high-expsale-subfilters');
+
+    function toggleHighExpsaleSubfilters() {
+      const show = highExpsaleCheckbox.checked;
+      highExpsaleSubfilters.style.display = show ? 'block' : 'none';
+      highExpsaleSubfilters.querySelectorAll('input').forEach(el => el.disabled = !show);
+    }
+    
+    highExpsaleCheckbox.addEventListener('change', toggleHighExpsaleSubfilters);
+
+    // Initial check on load
+    toggleHighExpsaleSubfilters();
+  });
+</script>

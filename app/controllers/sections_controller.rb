@@ -20,6 +20,29 @@ class SectionsController < ApplicationController
   def edit
   end
 
+  # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)
+  def plan
+    # @aisle is available from the get_aisle before_action
+    
+    # Call the service object
+    # params.permit!.to_h safely passes all form data as a hash to the service.
+    result = BinPlannerService.call(
+      aisle: @aisle, 
+      mode: params[:mode], 
+      params: params.permit!.to_h
+    )
+
+    respond_to do |format|
+      if result[:status] == :success
+        format.html { redirect_to aisle_path(@aisle), notice: result[:message] }
+        format.json { render json: { message: result[:message] }, status: :ok }
+      else
+        format.html { redirect_to aisle_path(@aisle), alert: "Planning failed: #{result[:message]}" }
+        format.json { render json: { error: result[:message] }, status: :unprocessable_entity }
+      end
+    end
+  end
+
   # POST /sections or /sections.json
   def create
     @section = @aisle.sections.build(section_params)
@@ -53,7 +76,7 @@ class SectionsController < ApplicationController
     @section.destroy!
 
     respond_to do |format|
-      format.html { redirect_to sections_path, notice: "Section was successfully destroyed.", status: :see_other }
+      format.html { redirect_to aisle_sections_path(@section.aisle), notice: "Section was successfully destroyed.", status: :see_other }
       format.json { head :no_content }
     end
   end

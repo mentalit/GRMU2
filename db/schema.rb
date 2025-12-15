@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_12_13_024611) do
+ActiveRecord::Schema[7.1].define(version: 2025_12_14_204932) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -62,6 +62,14 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_13_024611) do
     t.index ["store_id"], name: "index_articles_on_store_id"
   end
 
+  create_table "levels", force: :cascade do |t|
+    t.float "level_height"
+    t.bigint "section_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["section_id"], name: "index_levels_on_section_id"
+  end
+
   create_table "pairs", force: :cascade do |t|
     t.string "pair_nums"
     t.float "pair_depth"
@@ -94,6 +102,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_13_024611) do
 
   add_foreign_key "aisles", "pairs"
   add_foreign_key "articles", "stores"
+  add_foreign_key "levels", "sections"
   add_foreign_key "pairs", "stores"
   add_foreign_key "sections", "aisles"
 end

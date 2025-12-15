@@ -1,0 +1,9 @@
+<h1>New level</h1>
+
+<%= render "form", level: @level %>
+
+<br>
+
+<div>
+  <%= link_to "Back to levels", section_levels_path(@level.section) %>
+</div>
