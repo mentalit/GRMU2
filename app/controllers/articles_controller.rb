@@ -31,6 +31,10 @@ class ArticlesController < ApplicationController
                 notice: "Articles imported successfully"
   end
  
+ def planned_articles
+  @planned_articles = Article.where(planned: true)
+
+ end
 
   # GET /articles/1/edit
   def edit

@@ -8,7 +8,7 @@
 
 <%# The form posts to the 'plan' action in the SectionsController. %>
 <%# We use the aisle_sections_plan_path helper which requires the @aisle object. %>
-<%= form_tag plan_aisle_sections_path(@aisle), method: :post do %>
+<%= form_with url: plan_aisle_sections_path(@aisle), method: :post, local: true do %>
 
   <fieldset>
     <legend>Select Planning Mode</legend>
@@ -31,6 +31,7 @@
     <legend>Filter Articles By</legend>
     
     <%# Filter Type Radio Buttons (PA or HFB) %>
+  
     <label>
       <%= radio_button_tag :filter_type, "PA", params[:filter_type].blank? || params[:filter_type] == "PA" %> PA
     </label>
@@ -103,10 +104,53 @@
 
 <h1>Sections</h1>
 
+<%# NEW: Bulk Unassign Button %>
+<div style="margin-bottom: 20px;">
+  <%# FIX: Confirmation message string is now on a single line to prevent syntax error %>
+  <%= button_to "UNASSIGN ALL ARTICLES IN AISLE #{@aisle.aisle_num}", 
+      bulk_unassign_aisle_path(@aisle), 
+      method: :patch,
+      data: { confirm: 'WARNING! This will unassign ALL planned articles in this aisle. Are you sure? This action cannot be undone.' },
+      style: "background-color: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;"
+  %>
+</div>
+
+
 <% @sections.each do |section| %>
-  <div class="card col-12">
-    <%= render section %>
+  <% planned_article = section.articles.first %> <%# Assuming a section can have articles assigned %>
+
+  <div class="card col-12" style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
     
+    <%# --- Section Details (Using your existing section partial if it exists, or display details directly) --- %>
+    <h3>Section #<%= section.section_num %></h3>
+    <p>Depth: <code><%= section.section_depth %> mm</code></p>
+    
+    <%# --- Article Details --- %>
+    <% if planned_article.present? %>
+      <div style="border-left: 3px solid green; padding-left: 10px; margin-top: 10px;">
+        <h4>Assigned Article (Art No: <%= planned_article.artno %>)</h4>
+        <p><strong>Name:</strong> <%= planned_article.artname_unicode %></p>
+        <p>
+          <strong>Dimensions:</strong> 
+          W: <%= planned_article.cp_width || planned_article.ul_width_gross %> mm |
+          L: <%= planned_article.cp_length || planned_article.ul_length_gross %> mm |
+          H: <%= planned_article.cp_height || planned_article.ul_height_gross %> mm
+        </p>
+        <p style="color: green;">Status: Planned (ID: <%= planned_article.id %>)</p>
+        
+        <%# Existing: Single Unassign Button %>
+        <%= button_to "Unassign Article", unassign_article_path(planned_article), 
+          method: :patch, 
+          data: { confirm: 'Are you sure you want to unassign this article?' }, 
+          style: "background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;" %>
+
+      </div>
+    <% else %>
+      <div style="border-left: 3px solid #ccc; padding-left: 10px; margin-top: 10px;">
+        <p style="color: #666;">** Section is Unplanned **</p>
+      </div>
+    <% end %>
+
     <%= link_to "Show this section", section %>
   </div>
 <% end %>
@@ -124,6 +168,7 @@
       const mode = document.querySelector('input[name="mode"]:checked').value;
       const vossFs = document.getElementById('voss-filters');
       const show = (mode === 'voss_mode');
+ 
       vossFs.style.display = show ? 'block' : 'none';
       vossFs.querySelectorAll('input').forEach(inp => inp.disabled = !show);
     }
@@ -134,13 +179,11 @@
     });
 
     // Initial check on load
-    toggleVossFilters();
-
-
+    toggleVossFilters(); 
+    
     // --- High EXPSALE Sub-Filter Toggle ---
     const highExpsaleCheckbox = document.getElementById('high_expsale_only');
     const highExpsaleSubfilters = document.getElementById('high-expsale-subfilters');
-
     function toggleHighExpsaleSubfilters() {
       const show = highExpsaleCheckbox.checked;
       highExpsaleSubfilters.style.display = show ? 'block' : 'none';
@@ -148,7 +191,7 @@
     }
     
     highExpsaleCheckbox.addEventListener('change', toggleHighExpsaleSubfilters);
-
+    
     // Initial check on load
     toggleHighExpsaleSubfilters();
   });

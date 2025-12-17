@@ -20,29 +20,64 @@ class SectionsController < ApplicationController
   def edit
   end
 
-  # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)
   def plan
-    # @aisle is available from the get_aisle before_action
-    
-    # Call the service object
-    # params.permit!.to_h safely passes all form data as a hash to the service.
-    result = BinPlannerService.call(
-      aisle: @aisle, 
-      mode: params[:mode], 
-      params: params.permit!.to_h
-    )
+    # The @aisle object is already available via the before_action :get_aisle
+    # which is called because :plan is listed in the 'only' array.
 
-    respond_to do |format|
-      if result[:status] == :success
-        format.html { redirect_to aisle_path(@aisle), notice: result[:message] }
-        format.json { render json: { message: result[:message] }, status: :ok }
-      else
-        format.html { redirect_to aisle_path(@aisle), alert: "Planning failed: #{result[:message]}" }
-        format.json { render json: { error: result[:message] }, status: :unprocessable_entity }
-      end
+    # 1. Instantiate the service with the required objects and parameters.
+    # The BinPlannerService must be created in app/services/bin_planner_service.rb
+    service = BinPlannerService.new(aisle: @aisle, params: params)
+    
+    # 2. Execute the service.
+    result = service.call
+
+    # 3. Handle the result.
+    if result[:success]
+      # A successful plan should ideally redirect to a page showing the new layout
+      # (e.g., the index page for sections in that aisle).
+      redirect_to aisle_sections_path(@aisle), 
+                  notice: "Bin planning completed successfully in #{params[:mode].humanize} mode."
+    else
+      # If the service failed (e.g., validation error, logic error)
+      flash.alert = "Bin planning failed: #{result[:message]}"
+      # Redirect back to the form's original page to show the error
+      redirect_to aisle_sections_path(@aisle), status: :unprocessable_entity
     end
+  rescue NameError => e
+    # Catching a NameError is a good idea initially if the service or its dependencies 
+    # haven't been fully defined yet.
+    redirect_to aisle_sections_path(@aisle), 
+                alert: "Error: BinPlannerService not ready. #{e.message}"
   end
 
+  def unassign
+    # Find the article by the ID passed in the route
+    article = Article.find(params[:id])
+    
+    # Update the article to be unplanned and clear its section assignment
+    article.update!(section_id: nil, planned: false)
+    
+    # Redirect back to the sections index page for the current aisle
+    redirect_to aisle_sections_path(article.section.aisle), notice: "Article #{article.artno} unassigned successfully."
+  rescue ActiveRecord::RecordNotFound
+    redirect_back fallback_location: root_path, alert: "Article not found."
+  rescue => e
+    redirect_back fallback_location: root_path, alert: "Failed to unassign article: #{e.message}"
+  end
+
+  def bulk_unassign
+  # The ID in params[:id] is the Aisle ID.
+  aisle = Aisle.find(params[:id]) 
+  
+  # Find all articles belonging to any section in this aisle and update them
+  Article.where(section_id: aisle.section_ids)
+         .update_all(section_id: nil, planned: false)
+  
+  redirect_to aisle_sections_path(aisle), notice: "All planned articles in Aisle #{aisle.aisle_num} have been successfully unassigned."
+end
+
+  # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)
+  
   # POST /sections or /sections.json
   def create
     @section = @aisle.sections.build(section_params)
