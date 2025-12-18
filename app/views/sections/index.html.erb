@@ -49,13 +49,13 @@
     <%# Low EXPSALE Checkbox %>
     <label>
       <%= check_box_tag :low_expsale_only, '1', params[:low_expsale_only].present? %>
-      Only plan articles where <code>EXPSALE &lt; 5</code> <br>
+      Only plan articles where <code>EXPSALE < 5</code> <br>
     </label> <br>
 
     <%# High EXPSALE Checkbox %>
     <label>
       <%= check_box_tag :high_expsale_only, '1', params[:high_expsale_only].present?, id: 'high_expsale_only' %>
-      Only plan articles where <code>EXPSALE &gt; 5</code>
+      Only plan articles where <code>EXPSALE > 5</code>
     </label>
 
     <%# High EXPSALE Sub-Filters (Hidden by default) %>
@@ -117,7 +117,6 @@
 
 
 <% @sections.each do |section| %>
-  <% planned_article = section.articles.first %> <%# Assuming a section can have articles assigned %>
 
   <div class="card col-12" style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
     
@@ -126,25 +125,27 @@
     <p>Depth: <code><%= section.section_depth %> mm</code></p>
     
     <%# --- Article Details --- %>
-    <% if planned_article.present? %>
-      <div style="border-left: 3px solid green; padding-left: 10px; margin-top: 10px;">
-        <h4>Assigned Article (Art No: <%= planned_article.artno %>)</h4>
-        <p><strong>Name:</strong> <%= planned_article.artname_unicode %></p>
-        <p>
-          <strong>Dimensions:</strong> 
-          W: <%= planned_article.cp_width || planned_article.ul_width_gross %> mm |
-          L: <%= planned_article.cp_length || planned_article.ul_length_gross %> mm |
-          H: <%= planned_article.cp_height || planned_article.ul_height_gross %> mm
-        </p>
-        <p style="color: green;">Status: Planned (ID: <%= planned_article.id %>)</p>
-        
-        <%# Existing: Single Unassign Button %>
-        <%= button_to "Unassign Article", unassign_article_path(planned_article), 
-          method: :patch, 
-          data: { confirm: 'Are you sure you want to unassign this article?' }, 
-          style: "background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;" %>
+    <% if section.articles.any? %>
+      <% section.articles.each do |planned_article| %>
+        <div style="border-left: 3px solid green; padding-left: 10px; margin-top: 10px;">
+          <h4>Assigned Article (Art No: <%= planned_article.artno %>)</h4>
+          <p><strong>Name:</strong> <%= planned_article.artname_unicode %></p>
+          <p>
+            <strong>Dimensions:</strong> 
+            W: <%= planned_article.cp_width || planned_article.ul_width_gross %> mm |
+            L: <%= planned_article.cp_length || planned_article.ul_length_gross %> mm |
+            H: <%= planned_article.cp_height || planned_article.ul_height_gross %> mm
+          </p>
+          <p style="color: green;">Status: Planned (ID: <%= planned_article.id %>)</p>
+          
+          <%# Existing: Single Unassign Button %>
+          <%= button_to "Unassign Article", unassign_article_path(planned_article), 
+            method: :patch, 
+            data: { confirm: 'Are you sure you want to unassign this article?' }, 
+            style: "background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;" %>
 
-      </div>
+        </div>
+      <% end %>
     <% else %>
       <div style="border-left: 3px solid #ccc; padding-left: 10px; margin-top: 10px;">
         <p style="color: #666;">** Section is Unplanned **</p>

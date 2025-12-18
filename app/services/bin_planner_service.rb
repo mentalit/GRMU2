@@ -33,166 +33,154 @@ class BinPlannerService
   # --- COMMON PLANNING ENTRY POINT ---
   
   # This method performs all setup steps common to every planning mode.
+  # This method performs all setup steps common to every planning mode.
   def base_section_planner(plan_strategy:)
-    # 1. Get the filtered articles and convert to array to attach temporary attributes
+    # 1. Get the filtered articles and convert to array
     articles = base_articles_scope.to_a 
-    
-    # 2. Initialize the sorting arrays
     @deep_articles = []
     @shallow_articles = []
-    
-    # Track skipped articles for logging
     skipped_count = 0 
 
-    # 3. Iterate, calculate dimensions, store them, and sort the articles
+    # 2. Calculate dimensions and sort into @deep and @shallow
     articles.each do |art|
-      # Logic to determine which dimensions (UL or CP) to use
       if art.dt == 1 || (art.dt == 0 && (art.rssq > art.palq))
-        # Use UL (Unit Load) dimensions
         calculated_width = art.ul_width_gross
         calculated_length = art.ul_length_gross
-        calculated_height = art.ul_height_gross
       else
-        # Use CP (Case Pack) dimensions
         calculated_width = art.cp_width
         calculated_length = art.cp_length
-        calculated_height = art.cp_height
       end
 
-      # NEW GUARD CLAUSE: Skip article if the required length dimension is missing or invalid.
-      unless calculated_length.is_a?(Numeric)
-        Rails.logger.warn "PLANNER: Skipping article ID #{art.id} (Art No: #{art.artno}) due to missing or non-numeric length dimension."
+      unless calculated_length.is_a?(Numeric) && calculated_width.is_a?(Numeric)
         skipped_count += 1
         next 
       end
       
-      # Attach the calculated values to the article object for later use.
       art.define_singleton_method(:article_width) { calculated_width }
       art.define_singleton_method(:article_length) { calculated_length }
-      art.define_singleton_method(:article_height) { calculated_height }
 
-      # 4. SORTING LOGIC: ONLY USES LENGTH (Now safe because article_length is guaranteed to be numeric)
       if art.article_length > 1524
         @deep_articles << art
       else
         @shallow_articles << art
       end
     end
-    
-    # 5. Common Preparation: KEEP EXISTING PLANS (NO CLEANUP)
-    # The cleanup line is intentionally omitted to preserve existing assignments.
 
-    Rails.logger.info "PLANNER: Base setup complete. Strategy: #{plan_strategy}. Deep Arts: #{@deep_articles.count}, Shallow Arts: #{@shallow_articles.count}. Skipped: #{skipped_count}."
+    # 3. Create the master queue (shallow articles first for better density)
+    # We use a mutable copy so we can pluck items out of it
+    queue = @shallow_articles + @deep_articles
     
-    # 6. Execute the mode-specific planning logic
-    planning_result = send(plan_strategy)
+    # 4. Get available sections
+    available_sections = @aisle.sections
+                               .left_joins(:articles)
+                               .group('sections.id')
+                               .having('count(articles.id) = 0')
+                               .order(:section_num)
     
-    return planning_result
+    planned_count = 0
+
+   # app/services/bin_planner_service.rb
+
+# ... inside base_section_planner(plan_strategy:) ...
+
+    # 5. GREEDY BIN PACKING LOOP
+    available_sections.each do |section|
+      current_remaining_width = section.section_width
+      max_article_height = 0
+      dominant_dt = 0 
+      
+      i = 0
+      while i < queue.length
+        art = queue[i]
+        
+        if art.article_length <= section.section_depth && art.article_width <= current_remaining_width
+          # 1. Assign in Database
+          art.update!(section_id: section.id, planned: true)
+          
+          # --- INTEGRATED HEIGHT LOGIC ---
+          if art.dt == 1
+            # Standard DT=1 logic
+            art_height = art.ul_height_gross || 0
+            dominant_dt = 1
+          elsif art.dt == 0
+            # Apply your specific rssq/mpq rules for dt=0
+            if art.mpq == 1
+              art.update!(new_assq: art.rssq) # Update new_assq as requested
+              art_height = (art.rssq || 0) * (art.cp_height || 0)
+            else
+              # Handles art.mpq != 1 (and safety check for nil/zero)
+              divisor = (art.mpq.to_i > 0) ? art.mpq : 1
+              art_height = ((art.rssq || 0).to_f / divisor) * (art.cp_height || 0)
+            end
+          else
+            art_height = art.cp_height || 0
+          end
+
+          # Track the tallest required height in this section
+          max_article_height = [max_article_height, art_height].max
+          
+          # --- END INTEGRATED HEIGHT LOGIC ---
+
+          current_remaining_width -= art.article_width
+          planned_count += 1
+          queue.delete_at(i)
+        else
+          i += 1
+        end
+      end
+
+      # --- DYNAMIC LEVEL HEIGHT CALCULATION ---
+      if max_article_height > 0
+        # Clearance based on if any DT=1 items were present
+        clearance = (dominant_dt == 1) ? 254 : 127
+        new_total_height = max_article_height + clearance
+        
+        # Create or update the Level record associated with the section
+        level = section.levels.first_or_initialize
+        level.update!(level_height: new_total_height)
+      end
+
+      break if queue.empty?
+   
+      
+
+    unplanned_count = queue.count
+    
+    # Execute strategy (if any special logic is still needed) or return results
+    { 
+      success: true, 
+      planned_count: planned_count, 
+      unplanned_count: unplanned_count,
+      message: "Greedy Planning Complete: Assigned #{planned_count} articles. #{unplanned_count} remain."
+    }
+  end
+
+    unplanned_count = queue.count
+    
+    # Execute strategy (if any special logic is still needed) or return results
+    { 
+      success: true, 
+      planned_count: planned_count, 
+      unplanned_count: unplanned_count,
+      message: "Greedy Planning Complete: Assigned #{planned_count} articles. #{unplanned_count} remain."
+    }
   end
 
   # --- Mode-Specific Planning Logic ---
 
   def plan_non_opul
-    base_section_planner(plan_strategy: :non_opul_assignment)
-  end
-  
-  # The actual assignment logic for Non-OPUL mode
-  def non_opul_assignment
-    # Combine articles, prioritizing shallow ones for assignment first (common strategy)
-    articles_to_assign = @shallow_articles + @deep_articles 
-    
-    # Filter sections to only use those with NO assigned article.
-    available_sections = @aisle.sections
-                             .left_joins(:articles)
-                             .where(articles: { id: nil }) 
-                             .order(:section_num)
-    
-    planned_count = 0
-    
-    # Assignment Loop: Iterate through AVAILABLE sections and assign an unplanned article to each.
-    available_sections.each do |section|
-      
-      # Find the index of the first available article that fits the section's depth
-      article_to_assign_index = articles_to_assign.find_index do |art|
-        # CORE PLANNING RULE: Article length must be less than the section depth
-        art.article_length < section.section_depth
-      end
-
-      if article_to_assign_index.present?
-        art = articles_to_assign.delete_at(article_to_assign_index)
-        
-        # DATABASE UPDATE: Assign the article to the section and mark as planned
-        art.update!(section_id: section.id, planned: true)
-        planned_count += 1
-      end
-      
-      # Stop loop if we run out of articles to assign
-      break if articles_to_assign.empty?
-    end
-
-    unplanned_count = articles_to_assign.count # Remaining articles that couldn't be planned
-    
-    # Final Result
-    { 
-      success: true, 
-      message: "Non-OPUL planning completed. Assigned #{planned_count} articles to available sections. #{unplanned_count} articles remain.", 
-      planned_count: planned_count, 
-      unplanned_count: unplanned_count
-    }
+    res = base_section_planner(plan_strategy: :non_opul)
+    res.merge(message: "Non-OPUL planning completed. Assigned #{res[:planned_count]} articles. #{res[:unplanned_count]} remain.")
   end
 
-  # Now calls the base planner and executes opul_assignment
   def plan_opul
-    base_section_planner(plan_strategy: :opul_assignment)
+    res = base_section_planner(plan_strategy: :opul)
+    res.merge(message: "OPUL planning completed. Assigned #{res[:planned_count]} articles. #{res[:unplanned_count]} remain.")
   end
-  
-  # The actual assignment logic for OPUL mode (currently identical to non-opul, ready for customization)
-  def opul_assignment
-    articles_to_assign = @shallow_articles + @deep_articles 
-    
-    # Filter sections to only use those with NO assigned article.
-    available_sections = @aisle.sections
-                             .left_joins(:articles)
-                             .where(articles: { id: nil }) 
-                             .order(:section_num)
-    
-    planned_count = 0
-    
-    # Assignment Loop: Iterate through AVAILABLE sections and assign an unplanned article to each.
-    available_sections.each do |section|
-      
-      # Find the index of the first available article that fits the section's depth
-      article_to_assign_index = articles_to_assign.find_index do |art|
-        # CORE PLANNING RULE: Article length must be less than the section depth
-        art.article_length < section.section_depth
-      end
-
-      if article_to_assign_index.present?
-        art = articles_to_assign.delete_at(article_to_assign_index)
-        
-        # DATABASE UPDATE: Assign the article to the section and mark as planned
-        art.update!(section_id: section.id, planned: true)
-        planned_count += 1
-      end
-      
-      # Stop loop if we run out of articles to assign
-      break if articles_to_assign.empty?
-    end
-
-    unplanned_count = articles_to_assign.count
-    
-    # Final Result
-    { 
-      success: true, 
-      message: "OPUL planning completed. Assigned #{planned_count} articles to available sections. #{unplanned_count} articles remain.", 
-      planned_count: planned_count, 
-      unplanned_count: unplanned_count
-    }
-  end
-
 
   def plan_countertop
-    base_section_planner(plan_strategy: :countertop_assignment)
+    res = base_section_planner(plan_strategy: :countertop)
+    res.merge(message: "Countertop planning completed. Assigned #{res[:planned_count]} articles.")
   end
 
   def plan_voss
