@@ -3,7 +3,7 @@
 class BinPlannerService
   attr_reader :params, :aisle
   # Readers for the sorted lists
-  attr_reader :deep_articles, :shallow_articles 
+  attr_reader :deep_articles, :shallow_articles
 
   def initialize(aisle:, params:)
     @aisle = aisle
@@ -15,10 +15,10 @@ class BinPlannerService
     unless mode.present?
       return { success: false, message: "Planning mode not specified." }
     end
-    
-    plan_method = "plan_#{mode.chomp('_mode')}" 
-    
-    if respond_to?(plan_method, true) 
+
+    plan_method = "plan_#{mode.chomp('_mode')}"
+
+    if respond_to?(plan_method, true)
       return send(plan_method)
     else
       return { success: false, message: "Invalid planning mode: #{mode}" }
@@ -29,17 +29,15 @@ class BinPlannerService
   end
 
   private
-  
+
   # --- COMMON PLANNING ENTRY POINT ---
-  
-  # This method performs all setup steps common to every planning mode.
-  # This method performs all setup steps common to every planning mode.
+
   def base_section_planner(plan_strategy:)
     # 1. Get the filtered articles and convert to array
-    articles = base_articles_scope.to_a 
+    articles = base_articles_scope.to_a
     @deep_articles = []
     @shallow_articles = []
-    skipped_count = 0 
+    skipped_count = 0
 
     # 2. Calculate dimensions and sort into @deep and @shallow
     articles.each do |art|
@@ -53,9 +51,9 @@ class BinPlannerService
 
       unless calculated_length.is_a?(Numeric) && calculated_width.is_a?(Numeric)
         skipped_count += 1
-        next 
+        next
       end
-      
+
       art.define_singleton_method(:article_width) { calculated_width }
       art.define_singleton_method(:article_length) { calculated_length }
 
@@ -67,100 +65,139 @@ class BinPlannerService
     end
 
     # 3. Create the master queue (shallow articles first for better density)
-    # We use a mutable copy so we can pluck items out of it
     queue = @shallow_articles + @deep_articles
-    
-    # 4. Get available sections
+
+    # 4. Get available sections (empty sections only)
     available_sections = @aisle.sections
-                               .left_joins(:articles)
-                               .group('sections.id')
-                               .having('count(articles.id) = 0')
-                               .order(:section_num)
-    
+                              .left_joins(:articles)
+                              .group('sections.id')
+                              .having('count(articles.id) = 0')
+                              .order(:section_num)
+
     planned_count = 0
 
-   # app/services/bin_planner_service.rb
-
-# ... inside base_section_planner(plan_strategy:) ...
-
-    # 5. GREEDY BIN PACKING LOOP
+    # ------------------------------------------------------------
+    # 5. DYNAMIC LEVEL PLANNING (00..19) WITH HARD HEIGHT CONSTRAINT
+    # ------------------------------------------------------------
     available_sections.each do |section|
-      current_remaining_width = section.section_width
-      max_article_height = 0
-      dominant_dt = 0 
-      
-      i = 0
-      while i < queue.length
-        art = queue[i]
-        
-        if art.article_length <= section.section_depth && art.article_width <= current_remaining_width
-          # 1. Assign in Database
-          art.update!(section_id: section.id, planned: true)
-          
-          # --- INTEGRATED HEIGHT LOGIC ---
-          if art.dt == 1
-            # Standard DT=1 logic
-            art_height = art.ul_height_gross || 0
-            dominant_dt = 1
-          elsif art.dt == 0
-            # Apply your specific rssq/mpq rules for dt=0
-            if art.mpq == 1
-              art.update!(new_assq: art.rssq) # Update new_assq as requested
-              art_height = (art.rssq || 0) * (art.cp_height || 0)
-            else
-              # Handles art.mpq != 1 (and safety check for nil/zero)
-              divisor = (art.mpq.to_i > 0) ? art.mpq : 1
-              art_height = ((art.rssq || 0).to_f / divisor) * (art.cp_height || 0)
-            end
-          else
-            art_height = art.cp_height || 0
-          end
+      # If the section is empty but has leftover levels from a prior run,
+      # clear them so height sums and display don't lie.
+      Level.where(section_id: section.id).delete_all
 
-          # Track the tallest required height in this section
-          max_article_height = [max_article_height, art_height].max
-          
-          # --- END INTEGRATED HEIGHT LOGIC ---
+      remaining_section_height = section.section_height.to_f
 
-          current_remaining_width -= art.article_width
-          planned_count += 1
-          queue.delete_at(i)
+      # Helper lambdas (kept local so we don't change class surface area)
+      level_00_rule = lambda do |a|
+        a.dt == 1 ||
+          (a.dt == 0 && (
+            a.weight_g.to_f > 18_143.7 ||
+            a.rssq.to_f > (a.palq.to_f / 2.0)
+          ))
+      end
+
+      article_height = lambda do |a|
+        if a.dt == 1
+          (a.ul_height_gross || 0).to_f
+        elsif a.dt == 0
+          divisor = (a.mpq.to_i > 0) ? a.mpq.to_i : 1
+          # Your rule: if dt=0 and mpq != 1 => (rssq/mpq) * cp_height
+          # If mpq == 1, this is still (rssq/1) * cp_height.
+          (a.rssq.to_f / divisor) * (a.cp_height || 0).to_f
         else
-          i += 1
+          (a.cp_height || 0).to_f
         end
       end
 
-      # --- DYNAMIC LEVEL HEIGHT CALCULATION ---
-      if max_article_height > 0
-        # Clearance based on if any DT=1 items were present
-        clearance = (dominant_dt == 1) ? 254 : 127
-        new_total_height = max_article_height + clearance
-        
-        # Create or update the Level record associated with the section
-        level = section.levels.first_or_initialize
-        level.update!(level_height: new_total_height)
+      tallest_dt_of_level = lambda do |arts|
+        return 0 if arts.empty?
+        tallest = arts.max_by { |a| article_height.call(a) }
+        tallest&.dt.to_i
       end
 
-      break if queue.empty?
-   
-      
+      # Build levels from 00..19
+      (0..19).each do |level_index|
+        break if queue.empty?
+        break if remaining_section_height <= 0
+
+        level_num_str = format("%02d", level_index)
+
+        # Select candidate set per your rules
+        candidates =
+          if level_index == 0
+            queue.select { |a| level_00_rule.call(a) }
+          else
+            # "Every other dt=0 must go on other levels" (i.e., dt=0 not forced into level 00)
+            queue.select { |a| a.dt == 0 && !level_00_rule.call(a) }
+                 .sort_by { |a| a.weight_g.to_f } # lighter on lower levels
+          end
+
+        # If no candidates for this level:
+        # - Level 00: just skip creating it.
+        # - Other levels: if nothing left for non-00, we can stop.
+        if candidates.empty?
+          next if level_index == 0
+          break
+        end
+
+        # Width/Depth constrained greedy fill for THIS level
+        remaining_width = section.section_width.to_f
+        planned_for_level = []
+
+        candidates.each do |art|
+          next unless art.article_length.to_f <= section.section_depth.to_f
+          next unless art.article_width.to_f <= remaining_width
+
+          planned_for_level << art
+          remaining_width -= art.article_width.to_f
+        end
+
+        # Nothing fit => stop making further levels (width/depth constraints block progress)
+        if planned_for_level.empty?
+          next if level_index == 0
+          break
+        end
+
+        # Compute level height
+        tallest_height = planned_for_level.map { |a| article_height.call(a) }.max.to_f
+        dominant_dt = tallest_dt_of_level.call(planned_for_level)
+        clearance = (dominant_dt == 1) ? 254.0 : 127.0
+        level_height = tallest_height + clearance
+
+        # HARD CONSTRAINT: sum(level_heights) must not exceed section.section_height
+        if level_height > remaining_section_height
+          # Can't fit this level; stop planning more levels in this section.
+          break
+        end
+
+        # Persist level
+        if section.respond_to?(:levels)
+          section.levels.create!(
+            level_num: level_num_str,
+            level_height: level_height
+          )
+        end
+
+        # Persist article assignments (and your new_assq update when mpq == 1)
+        planned_for_level.each do |art|
+          if art.dt == 0 && art.mpq.to_i == 1
+            art.update!(new_assq: art.rssq)
+          end
+          art.update!(section_id: section.id, planned: true)
+          queue.delete(art)
+          planned_count += 1
+        end
+
+        remaining_section_height -= level_height
+
+        # After level 00, we continue; after other levels, loop continues until 19 or height full.
+      end
+    end
 
     unplanned_count = queue.count
-    
-    # Execute strategy (if any special logic is still needed) or return results
-    { 
-      success: true, 
-      planned_count: planned_count, 
-      unplanned_count: unplanned_count,
-      message: "Greedy Planning Complete: Assigned #{planned_count} articles. #{unplanned_count} remain."
-    }
-  end
 
-    unplanned_count = queue.count
-    
-    # Execute strategy (if any special logic is still needed) or return results
-    { 
-      success: true, 
-      planned_count: planned_count, 
+    {
+      success: true,
+      planned_count: planned_count,
       unplanned_count: unplanned_count,
       message: "Greedy Planning Complete: Assigned #{planned_count} articles. #{unplanned_count} remain."
     }
@@ -190,11 +227,11 @@ class BinPlannerService
   def plan_pallet
     base_section_planner(plan_strategy: :pallet_assignment)
   end
-  
+
   # --- Core Article Filtering Logic ---
-  
+
   def base_articles_scope
-    scope = @aisle.pair.store.articles 
+    scope = @aisle.pair.store.articles
 
     # 1. Apply optional Name Prefix filter
     if name_prefix
@@ -204,25 +241,25 @@ class BinPlannerService
     # 2. Apply PA/HFB filter
     scope = apply_pa_hfb_filter(scope)
 
-    # 3. Apply basic EXPSALE filters 
+    # 3. Apply basic EXPSALE filters
     if low_expsale_only?
       scope = scope.where('expsale < 5')
     elsif high_expsale_only?
       scope = scope.where('expsale > 5')
-      
+
       if high_expsale_require_dt1?
         scope = scope.where(dt: 1)
       end
     end
-    
+
     # 4. Filter out articles already planned
-    scope = scope.where(planned: [false, nil]) 
+    scope = scope.where(planned: [false, nil])
 
     # 5. Apply VOSS gates only if VOSS mode is selected.
     if planning_mode == 'voss_mode'
       scope = apply_voss_gates(scope)
     end
-    
+
     return scope
   end
 
@@ -231,11 +268,11 @@ class BinPlannerService
   def planning_mode
     @params[:mode]
   end
-  
+
   def name_prefix
     @params[:name_prefix].presence
   end
-  
+
   def low_expsale_only?
     @params[:low_expsale_only].present?
   end
@@ -247,7 +284,7 @@ class BinPlannerService
   def high_expsale_require_dt1?
     @params[:high_expsale_require_dt1].present?
   end
-  
+
   def apply_pa_hfb_filter(scope)
     filter_value = @params[:filter_value].presence
     return scope unless filter_value
@@ -264,7 +301,7 @@ class BinPlannerService
 
   def apply_voss_gates(scope)
     scope = scope.where(dt: 0) # VOSS requirement
-    
+
     if @params[:voss_cp_height_max].present?
       scope = scope.where('cp_height <= ?', @params[:voss_cp_height_max])
     end
@@ -283,7 +320,7 @@ class BinPlannerService
     if @params[:voss_weight_g_max].present?
       scope = scope.where('weight_g <= ?', @params[:voss_weight_g_max])
     end
-    
+
     return scope
   end
 end

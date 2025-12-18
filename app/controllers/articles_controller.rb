@@ -32,6 +32,7 @@ class ArticlesController < ApplicationController
   end
  
  def planned_articles
+  @articles = Article.all
   @planned_articles = Article.where(planned: true)
 
  end

@@ -118,41 +118,100 @@
 
 <% @sections.each do |section| %>
 
-  <div class="card col-12" style="border: 1px solid #ccc; padding: 10px; margin-bottom: 10px;">
-    
-    <%# --- Section Details (Using your existing section partial if it exists, or display details directly) --- %>
-    <h3>Section #<%= section.section_num %></h3>
-    <p>Depth: <code><%= section.section_depth %> mm</code></p>
-    
-    <%# --- Article Details --- %>
-    <% if section.articles.any? %>
-      <% section.articles.each do |planned_article| %>
-        <div style="border-left: 3px solid green; padding-left: 10px; margin-top: 10px;">
-          <h4>Assigned Article (Art No: <%= planned_article.artno %>)</h4>
-          <p><strong>Name:</strong> <%= planned_article.artname_unicode %></p>
-          <p>
-            <strong>Dimensions:</strong> 
-            W: <%= planned_article.cp_width || planned_article.ul_width_gross %> mm |
-            L: <%= planned_article.cp_length || planned_article.ul_length_gross %> mm |
-            H: <%= planned_article.cp_height || planned_article.ul_height_gross %> mm
-          </p>
-          <p style="color: green;">Status: Planned (ID: <%= planned_article.id %>)</p>
-          
-          <%# Existing: Single Unassign Button %>
-          <%= button_to "Unassign Article", unassign_article_path(planned_article), 
-            method: :patch, 
-            data: { confirm: 'Are you sure you want to unassign this article?' }, 
-            style: "background-color: #f44336; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: pointer; margin-top: 5px;" %>
+  <div class="card col-12" style="border:1px solid #ccc; padding:12px; margin-bottom:16px;">
 
+    <h3>Section <%= section.section_num %></h3>
+
+    <p>
+      <strong>Section Height:</strong> <%= section.section_height %> mm<br>
+      <strong>Used Height:</strong> <%= section.levels.sum(&:level_height).round(1) %> mm
+    </p>
+
+    <% if section.levels.any? %>
+      <% section.levels.order(:level_num).each do |level| %>
+
+        <div style="border:1px dashed #999; padding:10px; margin-bottom:10px;">
+          <h4>
+            Level <%= level.level_num %>
+            <span style="color:#555; font-size:0.9em;">
+              (Height: <%= level.level_height.round(2) %> mm)
+            </span>
+          </h4>
+
+          <%
+  planned_articles = section.articles.select(&:planned?)
+
+  level_00_rule = ->(a) do
+    a.dt == 1 ||
+      (a.dt == 0 && (
+        a.weight_g.to_f > 18_143.7 ||
+        a.rssq.to_f > (a.palq.to_f / 2.0)
+      ))
+  end
+
+  if level.level_num.to_s == "00"
+    articles = planned_articles.select { |a| level_00_rule.call(a) }
+  else
+    # non-00 levels: dt=0 only, NOT forced into level 00
+    dt0_articles = planned_articles
+      .select { |a| a.dt == 0 && !level_00_rule.call(a) }
+      .sort_by { |a| a.weight_g.to_f }
+
+    non00_levels = section.levels.reject { |l| l.level_num.to_s == "00" }.sort_by(&:level_num)
+    idx = non00_levels.index(level) || 0
+
+    per_level = (dt0_articles.length.to_f / [non00_levels.length, 1].max).ceil
+    start = idx * per_level
+
+    articles = dt0_articles.slice(start, per_level) || []
+  end
+%>
+
+          <% if articles.any? %>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f4f4f4;">
+                  <th align="left">Art No</th>
+                  <th>Name</th>
+                  <th>DT</th>
+                  <th>Weight (g)</th>
+                  <th>Width</th>
+                  <th>Calc Height (mm)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% articles.each do |art| %>
+                  <tr style="border-top:1px solid #ddd;">
+                    <td><%= art.artno %></td>
+                    <td><%= art.artname_unicode %></td>
+                    <td align="center"><%= art.dt %></td>
+                    <td align="right"><%= art.weight_g %></td>
+                    <% if art.dt == 1 %>
+                      <td align="right"><%= art.ul_width_gross %></td>
+                    <% else %>
+                      <td align="right"><%= art.cp_width %></td>
+                    <% end %>
+                    <td align="right">
+                      <% if art.dt == 1  %>
+                        <%= art.ul_height_gross %>
+                      <% else %>
+                        <%= art.cp_height %>
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          <% else %>
+            <p style="color:#777;">No articles on this level</p>
+          <% end %>
         </div>
+
       <% end %>
     <% else %>
-      <div style="border-left: 3px solid #ccc; padding-left: 10px; margin-top: 10px;">
-        <p style="color: #666;">** Section is Unplanned **</p>
-      </div>
+      <p style="color:#777;">No planned levels</p>
     <% end %>
 
-    <%= link_to "Show this section", section %>
   </div>
 <% end %>
 

@@ -1,5 +1,67 @@
-<% if @planned_articles.nil? %>
-	<h1>0</h1>
-<% else %>
-	<h1><%= @planned_articles.count %></h1>
-<% end %>
+<h1>Article Summary</h1>
+
+<div class="row">
+	<div class=" card col-1">
+		<h5>Total </h5>
+			<%= @articles.count %>
+	</div>
+
+	<div class=" card col-1">
+		<h5>Planned </h5>
+		<% if @planned_articles.nil? %>
+			0
+		<% else %>
+			<%= @planned_articles.count %>
+		<% end %>
+	</div>
+
+	<div class=" card col-2">
+		<h5>Planned  SM 1</h5>
+		<% if @planned_articles.nil? %>
+			0
+		<% else %>
+			<%= @planned_articles.count %>
+		<% end %>
+	</div>
+
+	<div class=" card col-2">
+		<h5>Planned Articles SM 2</h5>
+		<% if @planned_articles.nil? %>
+			0
+		<% else %>
+			<%= @planned_articles.count %>
+		<% end %>
+	</div>
+
+
+	<div class=" card col-2">
+		<h5>Planned Articles SM 3</h5>
+		<% if @planned_articles.nil? %>
+			0
+		<% else %>
+			<%= @planned_articles.count %>
+		<% end %>
+	</div>
+
+	<div class=" card col-2">
+		<h5>Planned Articles SM 0</h5>
+		<% if @planned_articles.nil? %>
+			0
+		<% else %>
+			<%= @planned_articles.count %>
+		<% end %>
+	</div>
+</div>
+
+<div class="row">
+<div class="card col-2">	
+<h3>HFB 7</h3>
+ Articles
+  <%= Article.where(hfb: "07").count %>
+  
+</div>
+
+
+
+
+</div>

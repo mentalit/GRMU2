@@ -66,14 +66,21 @@ class SectionsController < ApplicationController
   end
 
   def bulk_unassign
-  # The ID in params[:id] is the Aisle ID.
-  aisle = Aisle.find(params[:id]) 
-  
-  # Find all articles belonging to any section in this aisle and update them
-  Article.where(section_id: aisle.section_ids)
+  # The ID in params[:id] is the Aisle ID
+  aisle = Aisle.find(params[:id])
+
+  section_ids = aisle.sections.pluck(:id)
+
+  # 1. Unassign ALL articles in this aisle
+  Article.where(section_id: section_ids)
          .update_all(section_id: nil, planned: false)
-  
-  redirect_to aisle_sections_path(aisle), notice: "All planned articles in Aisle #{aisle.aisle_num} have been successfully unassigned."
+
+  # 2. HARD DELETE ALL levels in this aisle
+  # (must NOT use section.levels because of NOT NULL constraint)
+  Level.where(section_id: section_ids).delete_all
+
+  redirect_to aisle_sections_path(aisle),
+    notice: "All articles unassigned and ALL levels destroyed for Aisle #{aisle.aisle_num}."
 end
 
   # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)
