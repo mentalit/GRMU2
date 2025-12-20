@@ -2,18 +2,12 @@
 
 <p style="color: green"><%= notice %></p>
 
-<h1>Aisle <%= @aisle.aisle_num %></h1>
+<h3>Aisle <%= @aisle.aisle_num %></h3>      
 
-<h2>Plan Bin Layout</h2>
-
-<%# The form posts to the 'plan' action in the SectionsController. %>
-<%# We use the aisle_sections_plan_path helper which requires the @aisle object. %>
 <%= form_with url: plan_aisle_sections_path(@aisle), method: :post, local: true do %>
-
-  <fieldset>
+<div class="row">
+   <fieldset>
     <legend>Select Planning Mode</legend>
-    
-    <%# Mode Radio Buttons %>
     <% ['non_opul', 'opul', 'countertop', 'voss', 'pallet'].each do |mode| %>
       <label>
         <%= radio_button_tag :mode, "#{mode}_mode", (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')) %>
@@ -29,36 +23,25 @@
 
   <fieldset>
     <legend>Filter Articles By</legend>
-    
-    <%# Filter Type Radio Buttons (PA or HFB) %>
-  
     <label>
       <%= radio_button_tag :filter_type, "PA", params[:filter_type].blank? || params[:filter_type] == "PA" %> PA
     </label>
     <label>
       <%= radio_button_tag :filter_type, "HFB", params[:filter_type] == "HFB" %> HFB
     </label>
-    
-    <%# Filter Value Input %>
     <%= text_field_tag :filter_value, params[:filter_value], placeholder: "Enter PA or HFB value" %>
   </fieldset>
 
   <fieldset>
     <legend>Extra Filters</legend>
-    
-    <%# Low EXPSALE Checkbox %>
     <label>
       <%= check_box_tag :low_expsale_only, '1', params[:low_expsale_only].present? %>
       Only plan articles where <code>EXPSALE < 5</code> <br>
     </label> <br>
-
-    <%# High EXPSALE Checkbox %>
     <label>
       <%= check_box_tag :high_expsale_only, '1', params[:high_expsale_only].present?, id: 'high_expsale_only' %>
       Only plan articles where <code>EXPSALE > 5</code>
     </label>
-
-    <%# High EXPSALE Sub-Filters (Hidden by default) %>
     <div id="high-expsale-subfilters" style="margin-top:6px; display: <%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
       <label style="display:inline-flex; gap:6px; align-items:center;">
         <%= check_box_tag :high_expsale_require_dt1, '1', params[:high_expsale_require_dt1].present? %>
@@ -67,7 +50,6 @@
     </div>
   </fieldset>
 
-  <%# VOSS Gates (Hidden by default, show if VOSS mode is checked) %>
   <% is_voss = params[:mode] == 'voss_mode' %>
   <fieldset id="voss-filters" style="display: <%= is_voss ? 'block' : 'none' %>;">
     <legend>VOSS Gates (optional)</legend>
@@ -95,77 +77,63 @@
       Items must be DT=0 and meet all provided maxima (≤). PA/HFB filter above still applies.
     </p>
   </fieldset>
+</div>
 
-  <%= submit_tag "Run Bin Planner" %>
+<%= submit_tag "Run Bin Planner" %>
 <% end %>
 
-
 <hr>
-
 <h1>Sections</h1>
 
-<%# NEW: Bulk Unassign Button %>
 <div style="margin-bottom: 20px;">
-  <%# FIX: Confirmation message string is now on a single line to prevent syntax error %>
   <%= button_to "UNASSIGN ALL ARTICLES IN AISLE #{@aisle.aisle_num}", 
       bulk_unassign_aisle_path(@aisle), 
       method: :patch,
-      data: { confirm: 'WARNING! This will unassign ALL planned articles in this aisle. Are you sure? This action cannot be undone.' },
-      style: "background-color: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;"
-  %>
+      data: { confirm: 'WARNING! This will unassign ALL planned articles in this aisle. Are you sure?' },
+      style: "background-color: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;" %>
 </div>
 
-
 <% @sections.each do |section| %>
-
   <div class="card col-12" style="border:1px solid #ccc; padding:12px; margin-bottom:16px;">
-
     <h3>Section <%= section.section_num %></h3>
-
     <p>
       <strong>Section Height:</strong> <%= section.section_height %> mm<br>
-      <strong>Used Height:</strong> <%= section.levels.sum(&:level_height).round(1) %> mm
+      <strong>Used Height:</strong> <%= section.levels.sum { |l| l.level_height.to_f }.round(1) %> mm
+      <strong>Section Width:</strong> <%= section.section_width %> <br>
+      <strong>Section Depth:</strong> <%= section.section_depth %>
     </p>
 
     <% if section.levels.any? %>
       <% section.levels.order(:level_num).each do |level| %>
-
         <div style="border:1px dashed #999; padding:10px; margin-bottom:10px;">
           <h4>
             Level <%= level.level_num %>
             <span style="color:#555; font-size:0.9em;">
-              (Height: <%= level.level_height.round(2) %> mm)
+              (Height: <%= level.level_height.to_f.round(2) %> mm)
             </span>
           </h4>
 
           <%
-  planned_articles = section.articles.select(&:planned?)
+            planned_articles = section.articles.select(&:planned?)
+            # SACRED RULE (Updated to 45%)
+            level_00_rule = ->(a) do
+              a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.rssq.to_f >= (a.palq.to_f * 0.45)))
+            end
 
-  level_00_rule = ->(a) do
-    a.dt == 1 ||
-      (a.dt == 0 && (
-        a.weight_g.to_f > 18_143.7 ||
-        a.rssq.to_f > (a.palq.to_f / 2.0)
-      ))
-  end
+            if level.level_num.to_s == "00"
+              articles = planned_articles.select { |a| level_00_rule.call(a) }
+            else
+              dt0_articles = planned_articles
+                .select { |a| a.dt == 0 && !level_00_rule.call(a) }
+                .sort_by { |a| a.weight_g.to_f }
 
-  if level.level_num.to_s == "00"
-    articles = planned_articles.select { |a| level_00_rule.call(a) }
-  else
-    # non-00 levels: dt=0 only, NOT forced into level 00
-    dt0_articles = planned_articles
-      .select { |a| a.dt == 0 && !level_00_rule.call(a) }
-      .sort_by { |a| a.weight_g.to_f }
-
-    non00_levels = section.levels.reject { |l| l.level_num.to_s == "00" }.sort_by(&:level_num)
-    idx = non00_levels.index(level) || 0
-
-    per_level = (dt0_articles.length.to_f / [non00_levels.length, 1].max).ceil
-    start = idx * per_level
-
-    articles = dt0_articles.slice(start, per_level) || []
-  end
-%>
+              non00_levels = section.levels.reject { |l| l.level_num.to_s == "00" }.sort_by(&:level_num)
+              idx = non00_levels.index(level) || 0
+              per_level = (dt0_articles.length.to_f / [non00_levels.length, 1].max).ceil
+              start = idx * per_level
+              articles = dt0_articles.slice(start, per_level) || []
+            end
+          %>
 
           <% if articles.any? %>
             <table style="width:100%; border-collapse:collapse;">
@@ -177,6 +145,9 @@
                   <th>Weight (g)</th>
                   <th>Width</th>
                   <th>Calc Height (mm)</th>
+                  <th>PA</th>
+                  <th>RSSQ</th>
+                  <th>PALQ</th>
                 </tr>
               </thead>
               <tbody>
@@ -186,18 +157,19 @@
                     <td><%= art.artname_unicode %></td>
                     <td align="center"><%= art.dt %></td>
                     <td align="right"><%= art.weight_g %></td>
-                    <% if art.dt == 1 %>
-                      <td align="right"><%= art.ul_width_gross %></td>
-                    <% else %>
-                      <td align="right"><%= art.cp_width %></td>
-                    <% end %>
                     <td align="right">
-                      <% if art.dt == 1  %>
-                        <%= art.ul_height_gross %>
+                      <% if level_00_rule.call(art) %>
+                        <%= art.ul_width_gross %>
                       <% else %>
-                        <%= art.cp_height %>
+                        <%= art.cp_width %>
                       <% end %>
                     </td>
+                    <td align="right">
+                      <%= art.effective_height.round(2) %>
+                    </td>
+                    <td><%= art.pa.to_s %></td>
+                    <td><%= art.rssq %></td>
+                    <td><%= art.palq %></td>
                   </tr>
                 <% end %>
               </tbody>
@@ -206,42 +178,31 @@
             <p style="color:#777;">No articles on this level</p>
           <% end %>
         </div>
-
       <% end %>
     <% else %>
       <p style="color:#777;">No planned levels</p>
     <% end %>
-
   </div>
 <% end %>
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
 
-<%# -------------------------------------------------------------------- %>
-<%# JAVASCRIPT FOR DYNAMIC FILTER BEHAVIOR (VOSS & EXPSALE) %>
-<%# -------------------------------------------------------------------- %>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    
-    // --- VOSS Filter Toggle ---
     function toggleVossFilters() {
-      const mode = document.querySelector('input[name="mode"]:checked').value;
+      const modeRadio = document.querySelector('input[name="mode"]:checked');
+      if (!modeRadio) return;
+      const mode = modeRadio.value;
       const vossFs = document.getElementById('voss-filters');
-      const show = (mode === 'voss_mode');
- 
-      vossFs.style.display = show ? 'block' : 'none';
-      vossFs.querySelectorAll('input').forEach(inp => inp.disabled = !show);
+      vossFs.style.display = (mode === 'voss_mode') ? 'block' : 'none';
+      vossFs.querySelectorAll('input').forEach(inp => inp.disabled = (mode !== 'voss_mode'));
     }
     
-    // Attach listener to all mode radio buttons
     document.querySelectorAll('input[name="mode"]').forEach(radio => {
       radio.addEventListener('change', toggleVossFilters);
     });
-
-    // Initial check on load
     toggleVossFilters(); 
     
-    // --- High EXPSALE Sub-Filter Toggle ---
     const highExpsaleCheckbox = document.getElementById('high_expsale_only');
     const highExpsaleSubfilters = document.getElementById('high-expsale-subfilters');
     function toggleHighExpsaleSubfilters() {
@@ -249,10 +210,7 @@
       highExpsaleSubfilters.style.display = show ? 'block' : 'none';
       highExpsaleSubfilters.querySelectorAll('input').forEach(el => el.disabled = !show);
     }
-    
     highExpsaleCheckbox.addEventListener('change', toggleHighExpsaleSubfilters);
-    
-    // Initial check on load
     toggleHighExpsaleSubfilters();
   });
 </script>
