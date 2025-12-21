@@ -1,6 +1,6 @@
 class ArticlesController < ApplicationController
   before_action :set_article, only: %i[ show edit update destroy ]
-  before_action :get_store,  only: %i[ new create index new_import import ]
+  before_action :get_store,  only: %i[ new create index new_import import planned_articles]
 
 
   # GET /articles or /articles.json
@@ -32,7 +32,7 @@ class ArticlesController < ApplicationController
   end
  
  def planned_articles
-  @articles = Article.all
+  @articles = @store.articles
   @planned_articles = Article.where(planned: true)
 
  end
@@ -80,6 +80,7 @@ class ArticlesController < ApplicationController
   end
 
   private
+
     # Use callbacks to share common setup or constraints between actions.
     def set_article
       @article = Article.find(params[:id])
