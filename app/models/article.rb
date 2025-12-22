@@ -19,4 +19,7 @@ class Article < ApplicationRecord
       (cp_height || 0).to_f
     end
   end
+
+
+ 
 end

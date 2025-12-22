@@ -1,67 +1,45 @@
-<h1>Article Summary</h1>
+<h5>Article Summary</h5>
+
 
 <div class="row">
-	<div class=" card col-1">
-		<h5>Total </h5>
-			<%= @articles.count %>
-	</div>
+  <div class="col-4">
+    <div class="row">
+      <% @store.hfbs.each do |h| %>
+        <div class="col-4 mb-1">
+          <div class="card">
+            <div class="card-body">
+              <h5>HFB <%= h %></h5>
+              Total: <%= @articles.where(hfb: h).count %><br>
+              Planned: <%= @articles.where(hfb: h, planned: true).count %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
 
-	<div class=" card col-1">
-		<h5>Planned </h5>
-		<% if @planned_articles.nil? %>
-			0
-		<% else %>
-			<%= @planned_articles.count %>
-		<% end %>
-	</div>
-
-	<div class=" card col-2">
-		<h5>Planned  SM 1</h5>
-		<% if @planned_articles.nil? %>
-			0
-		<% else %>
-			<%= @planned_articles.count %>
-		<% end %>
-	</div>
-
-	<div class=" card col-2">
-		<h5>Planned Articles SM 2</h5>
-		<% if @planned_articles.nil? %>
-			0
-		<% else %>
-			<%= @planned_articles.count %>
-		<% end %>
-	</div>
-
-
-	<div class=" card col-2">
-		<h5>Planned Articles SM 3</h5>
-		<% if @planned_articles.nil? %>
-			0
-		<% else %>
-			<%= @planned_articles.count %>
-		<% end %>
-	</div>
-
-	<div class=" card col-2">
-		<h5>Planned Articles SM 0</h5>
-		<% if @planned_articles.nil? %>
-			0
-		<% else %>
-			<%= @planned_articles.count %>
-		<% end %>
-	</div>
-</div>
-
-<div class="row">
-<div class="card col-2">	
-<h3>HFB 7</h3>
- Articles
-  <%= Article.where(hfb: "07").count %>
-  
+   <div class="col-7">
+    <div class="row">
+      <% @store.pas.each do |p| %>
+        <div class="col-3 ">
+          <div class="card">
+            <div class="card-body">
+              <h5>PA <%= p %></h5>
+              Total: <%= @articles.where(pa: p).count %><br>
+              Planned: <%= @articles.where(pa: p, planned: true).count %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
 </div>
 
 
 
 
-</div>
+
+	
+	
+
+	
