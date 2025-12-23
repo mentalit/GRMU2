@@ -15,6 +15,7 @@ Rails.application.routes.draw do
         get :unplanned_articles
         get :planned_articles
         get  :new_import
+        delete :destroy_all
         post :import
       end
     end

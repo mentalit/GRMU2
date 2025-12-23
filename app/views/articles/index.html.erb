@@ -1,5 +1,14 @@
 <p style="color: green"><%= notice %></p>
 
+<%= button_to "Delete ALL Articles",
+    destroy_all_store_articles_path(@store),
+    method: :delete,
+    data: {
+      turbo_confirm: "⚠️ Are you sure?\n\nThis will permanently delete ALL articles for this store.\nThis action cannot be undone."
+    },
+    class: "btn btn-danger" %>
+
+
 <h1>Articles</h1>
 
 <div id="articles">
@@ -10,5 +19,7 @@
     </p>
   <% end %>
 </div>
+
+
 
 <%= link_to "New article", new_store_article_path %>

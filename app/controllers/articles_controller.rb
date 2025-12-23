@@ -1,6 +1,6 @@
 class ArticlesController < ApplicationController
   before_action :set_article, only: %i[ show edit update destroy ]
-  before_action :get_store,  only: %i[ new create index new_import import planned_articles unplanned_articles]
+  before_action :get_store,  only: %i[ new create index new_import import planned_articles unplanned_articles destroy_all]
 
 
   # GET /articles or /articles.json
@@ -29,6 +29,18 @@ class ArticlesController < ApplicationController
 
     redirect_to store_articles_path(@store),
                 notice: "Articles imported successfully"
+  end
+
+
+  def destroy_all
+    store_id = params[:store_id]
+
+    deleted = Article.unscoped.where(store_id: store_id).delete_all
+
+    Rails.logger.info "[ARTICLES] Deleted #{deleted} articles for store #{store_id}"
+
+    redirect_to store_articles_path(store_id),
+                notice: "Deleted #{deleted} articles"
   end
  
  def planned_articles
