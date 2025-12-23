@@ -9,6 +9,7 @@ Rails.application.routes.draw do
   root "stores#index"
 
   resources :stores, shallow: true do
+    get :aisles, on: :member
     resources :articles do
       collection do
         get :unplanned_articles

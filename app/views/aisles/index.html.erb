@@ -1,32 +1,27 @@
 <p style="color: green"><%= notice %></p>
 
+<h1>
+  <% if defined?(@store) && @store.present? %>
+    All Aisles for Store <%= @store.store_num %>
+  <% else %>
+    Aisles for Pair <%= @pair.pair_nums %>
+  <% end %>
+</h1>
+
 <div class="row">
-  <div class="col-3">
-    <h1>Aisles</h1>
 
-  </div>
+ 
+    <% @aisles.sort.each do |aisle| %>
+    <div class="card col-2">
+        Aisle: <%= link_to aisle.aisle_num, aisle %><br>
+        Pair: <%= aisle.pair.pair_nums %><br>
+        Store: <%= aisle.store.store_num %><br>
+        Sections: <%= aisle.sections.count %><br>
+        Articles: <%= aisle.articles.count %>
+        <%= link_to "Sections", aisle_sections_path(aisle)%>
+    </div> 
+    <% end %>
+  
 
-  <div class="col-3">
-    <%= link_to "New aisle", new_pair_aisle_path %>
-
-  </div>
 
 </div>
-
-<div class="row">
-  
-    <% @aisles.each do |aisle| %>
-<div class="card col-2 border-secondary ">
-      <%= render aisle %>
-      
-        <%= link_to "Show this aisle", aisle %>
-
-        <%= link_to "Sections", aisle_sections_path(aisle) %>
-    
-      </div>
-    <% end %>
-    
-  </div>
-
-
-

@@ -1,5 +1,6 @@
-<div id="<%= dom_id article %>">
-  <p>
+<div class="row">
+
+<div class="card col-3">
     <strong>Artno:</strong>
     <%= article.artno %>
   </p>
@@ -24,15 +25,7 @@
     <%= article.slid_h %>
   </p>
 
-  <p>
-    <strong>Ssd:</strong>
-    <%= article.ssd %>
-  </p>
-
-  <p>
-    <strong>Eds:</strong>
-    <%= article.eds %>
-  </p>
+ 
 
   <p>
     <strong>Hfb:</strong>
@@ -48,7 +41,9 @@
     <strong>Pa:</strong>
     <%= article.pa %>
   </p>
+</div>
 
+<div class="card col-3">
   <p>
     <strong>Salesmethod:</strong>
     <%= article.salesmethod %>
@@ -58,6 +53,9 @@
     <strong>Rssq:</strong>
     <%= article.rssq %>
   </p>
+
+
+
 
   <p>
     <strong>Sal sol indic:</strong>
@@ -69,6 +67,8 @@
     <%= article.mpq %>
   </p>
 
+
+
   <p>
     <strong>Palq:</strong>
     <%= article.palq %>
@@ -78,6 +78,9 @@
     <strong>Dt:</strong>
     <%= article.dt %>
   </p>
+  </div>
+
+  <div class="card col-3">
 
   <p>
     <strong>Cp height:</strong>
@@ -124,6 +127,13 @@
     <%= article.ul_diamter %>
   </p>
 
+ 
+</div>
+
+
+ <div class="card col-2">
+
+ 
   <p>
     <strong>New assq:</strong>
     <%= article.new_assq %>
@@ -148,5 +158,8 @@
     <strong>Store:</strong>
     <%= article.store_id %>
   </p>
+</div>
+
+
 
 </div>

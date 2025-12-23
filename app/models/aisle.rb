@@ -1,6 +1,9 @@
 class Aisle < ApplicationRecord
   belongs_to :pair
+  delegate :store, to: :pair
   has_many :sections
+  has_many :articles, through: :sections
+
 
 
   after_create :create_sections

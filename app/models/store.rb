@@ -1,6 +1,7 @@
 class Store < ApplicationRecord
 	has_many :articles
 	has_many :pairs
+	has_many :aisles, through: :pairs
 
 
 	def sales_methods

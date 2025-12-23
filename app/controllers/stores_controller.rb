@@ -11,6 +11,17 @@ class StoresController < ApplicationController
     @articles = @store.articles
   end
 
+   def aisles
+    @store = Store.find(params[:id])
+
+    @aisles = @store
+      .aisles
+      .includes(:pair)
+      .order("pairs.pair_nums ASC, aisles.aisle_num ASC")
+
+    render "aisles/index"
+  end
+
   # GET /stores/new
   def new
     @store = Store.new
