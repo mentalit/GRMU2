@@ -1,6 +1,6 @@
 class ArticlesController < ApplicationController
   before_action :set_article, only: %i[ show edit update destroy ]
-  before_action :get_store,  only: %i[ new create index new_import import planned_articles]
+  before_action :get_store,  only: %i[ new create index new_import import planned_articles unplanned_articles]
 
 
   # GET /articles or /articles.json
@@ -33,9 +33,22 @@ class ArticlesController < ApplicationController
  
  def planned_articles
   @articles = @store.articles
-  @planned_articles = Article.where(planned: true)
+  @planned_articles = @store.articles.where(planned: true)
 
  end
+
+ def unplanned_articles
+  @sales_area = params[:sales_area]
+
+  scope =
+    if @sales_area.to_s.length == 2
+      @store.articles.where(hfb: @sales_area)
+    else
+      @store.articles.where(pa: @sales_area)
+    end
+
+ @unplanned = scope.where(planned: [false, nil])
+end
 
   # GET /articles/1/edit
   def edit

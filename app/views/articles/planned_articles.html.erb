@@ -8,7 +8,7 @@
         <div class="col-4 mb-1">
           <div class="card">
             <div class="card-body">
-              <h5>HFB <%= h %></h5>
+              <h5>HFB <%= link_to h, unplanned_articles_store_articles_path(@store, sales_area: h) %></h5>
               Total: <%= @articles.where(hfb: h).count %><br>
               Planned: <%= @articles.where(hfb: h, planned: true).count %>
             </div>
@@ -24,7 +24,7 @@
         <div class="col-3 ">
           <div class="card">
             <div class="card-body">
-              <h5>PA <%= p %></h5>
+              <h5>PA <%= link_to p, unplanned_articles_store_articles_path(@store, sales_area: p) %></h5></h5>
               Total: <%= @articles.where(pa: p).count %><br>
               Planned: <%= @articles.where(pa: p, planned: true).count %>
             </div>

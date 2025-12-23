@@ -11,6 +11,7 @@ Rails.application.routes.draw do
   resources :stores, shallow: true do
     resources :articles do
       collection do
+        get :unplanned_articles
         get :planned_articles
         get  :new_import
         post :import

@@ -1,0 +1,15 @@
+<% if params[:sales_area].to_s.split("").count == 2 %>
+	<h1> HFB <%= params[:sales_area] %></h1> 
+
+<% else %>
+    <h1>PA <%= params[:sales_area] %></h1> 
+<% end %>
+
+
+
+<% @unplanned.each do |x| %>
+	<div class="card">
+		<%= link_to x.artname_unicode, x  %>
+	</div>
+<% end %>
+</div>
