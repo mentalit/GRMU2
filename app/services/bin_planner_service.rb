@@ -33,7 +33,7 @@ class BinPlannerService
   def base_section_planner(plan_strategy:)
     # 1. Define the SACRED RULE (Updated to 45%)
     level_00_rule = lambda do |a|
-      a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.rssq.to_f >= (a.palq.to_f * 0.45)))
+      a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
     end
 
     # Helper to get width/length using Pallet (ul_) measurements if the rule is met
@@ -118,7 +118,7 @@ class BinPlannerService
         if planned_for_level.any?
           if existing_level
             planned_for_level.each do |art|
-              art.update!(new_assq: art.rssq) if art.dt == 0 && art.mpq.to_i == 1
+              art.update!(new_assq: art.split_rssq) if art.dt == 0 && art.mpq.to_i == 1
               art.update!(section_id: section.id, planned: true)
               queue.delete(art)
               planned_count += 1
@@ -129,7 +129,7 @@ class BinPlannerService
             end
 
             new_tallest = current_arts.map(&:effective_height).max.to_f
-            clr = current_arts.any? { |a| a.dt == 1 || (a.dt == 0 && a.rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+            clr = current_arts.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
             height_diff = (new_tallest + clr) - existing_level.level_height
             
             if height_diff > 0
@@ -138,13 +138,13 @@ class BinPlannerService
             end
           else
             tallest_h = planned_for_level.map(&:effective_height).max.to_f
-            clr = planned_for_level.any? { |a| a.dt == 1 || (a.dt == 0 && a.rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+            clr = planned_for_level.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
             level_height_needed = tallest_h + clr
 
             if level_index == 0 || level_height_needed <= section_height_map[section.id]
               section.levels.create!(level_num: level_num_str, level_height: level_height_needed)
               planned_for_level.each do |art|
-                art.update!(new_assq: art.rssq) if art.dt == 0 && art.mpq.to_i == 1
+                art.update!(new_assq: art.split_rssq) if art.dt == 0 && art.mpq.to_i == 1
                 art.update!(section_id: section.id, planned: true)
                 queue.delete(art)
                 planned_count += 1
@@ -203,7 +203,7 @@ class BinPlannerService
     scope = scope.where('cp_height <= ?', @params[:voss_cp_height_max]) if @params[:voss_cp_height_max].present?
     scope = scope.where('cp_length <= ?', @params[:voss_cp_length_max]) if @params[:voss_cp_length_max].present?
     scope = scope.where('cp_width <= ?', @params[:voss_cp_width_max]) if @params[:voss_cp_width_max].present?
-    scope = scope.where('rssq <= ?', @params[:voss_rssq_max]) if @params[:voss_rssq_max].present?
+    scope = scope.where('split_rssq <= ?', @params[:voss_split_rssq_max]) if @params[:voss_split_rssq_max].present?
     scope = scope.where('expsale <= ?', @params[:voss_expsale_max]) if @params[:voss_expsale_max].present?
     scope = scope.where('weight_g <= ?', @params[:voss_weight_g_max]) if @params[:voss_weight_g_max].present?
     scope

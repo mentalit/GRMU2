@@ -32,7 +32,7 @@ class ArticlesController < ApplicationController
   end
  
  def planned_articles
-  @articles = @store.articles
+  @articles = @store.articles 
   @planned_articles = @store.articles.where(planned: true)
 
  end
@@ -41,10 +41,14 @@ class ArticlesController < ApplicationController
   @sales_area = params[:sales_area]
 
   scope =
-    if @sales_area.to_s.length == 2
-      @store.articles.where(hfb: @sales_area)
-    else
+
+    if @sales_area.to_s.length > 2 
       @store.articles.where(pa: @sales_area)
+
+    else
+      @store.articles.where(hfb: @sales_area)
+    
+      
     end
 
  @unplanned = scope.where(planned: [false, nil])

@@ -1,8 +1,30 @@
 <h5>Article Summary</h5>
 
+<div class="row">
+  
+  <div class="card col-2">
+    
+    Total Articles: <%= @articles.count %> <br>
+    Planned Articles: <%= @planned_articles.count %>
+  </div>
+
+   <div class="card col-2">
+    
+    Total SM 1 Articles: <%= @articles.where(salesmethod: 1).count %> <br>
+    Planned Articles: <%= @planned_articles.where(salesmethod: 1).count %>
+  </div>
+
+   <div class="card col-2">
+    
+    Total SM 2 Articles: <%= @articles.where(salesmethod: 2).count %> <br>
+    Planned Articles: <%= @planned_articles.where(salesmethod: 2).count %>
+  </div>
+</div>
 
 <div class="row">
   <div class="col-4">
+    HFB's
+
     <div class="row">
       <% @store.hfbs.each do |h| %>
         <div class="col-4 mb-1">
@@ -18,7 +40,9 @@
     </div>
   </div>
 
+  
    <div class="col-7">
+    PA's
     <div class="row">
       <% @store.pas.each do |p| %>
         <div class="col-3 ">
