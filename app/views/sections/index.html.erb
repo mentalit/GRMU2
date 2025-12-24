@@ -10,7 +10,8 @@
     <legend>Select Planning Mode</legend>
     <% ['non_opul', 'opul', 'countertop', 'voss', 'pallet'].each do |mode| %>
       <label>
-        <%= radio_button_tag :mode, "#{mode}_mode", (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')) %>
+        <%= radio_button_tag :mode, "#{mode}_mode",
+          (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')) %>
         <%= mode.humanize %>
       </label>
     <% end %>
@@ -36,13 +37,16 @@
     <legend>Extra Filters</legend>
     <label>
       <%= check_box_tag :low_expsale_only, '1', params[:low_expsale_only].present? %>
-      Only plan articles where <code>EXPSALE < 5</code> <br>
-    </label> <br>
+      Only plan articles where <code>EXPSALE &lt; 5</code>
+    </label><br>
+
     <label>
       <%= check_box_tag :high_expsale_only, '1', params[:high_expsale_only].present?, id: 'high_expsale_only' %>
-      Only plan articles where <code>EXPSALE > 5</code>
+      Only plan articles where <code>EXPSALE &gt; 5</code>
     </label>
-    <div id="high-expsale-subfilters" style="margin-top:6px; display: <%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
+
+    <div id="high-expsale-subfilters"
+         style="margin-top:6px; display:<%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
       <label style="display:inline-flex; gap:6px; align-items:center;">
         <%= check_box_tag :high_expsale_require_dt1, '1', params[:high_expsale_require_dt1].present? %>
         Also require <code>DT = 1</code>
@@ -51,7 +55,7 @@
   </fieldset>
 
   <% is_voss = params[:mode] == 'voss_mode' %>
-  <fieldset id="voss-filters" style="display: <%= is_voss ? 'block' : 'none' %>;">
+  <fieldset id="voss-filters" style="display:<%= is_voss ? 'block' : 'none' %>;">
     <legend>VOSS Gates (optional)</legend>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
       <label>Max CP_HEIGHT (mm)
@@ -73,9 +77,6 @@
         <%= number_field_tag :voss_weight_g_max, params[:voss_weight_g_max] || 4536, step: 1 %>
       </label>
     </div>
-    <p style="margin:6px 0 0; font-size:0.9em; opacity:.8">
-      Items must be DT=0 and meet all provided maxima (≤). PA/HFB filter above still applies.
-    </p>
   </fieldset>
 </div>
 
@@ -83,6 +84,7 @@
 <% end %>
 
 <hr>
+
 <h1>Sections</h1>
 
 <div style="margin-bottom: 20px;">
@@ -90,127 +92,113 @@
       bulk_unassign_aisle_path(@aisle), 
       method: :patch,
       data: { confirm: 'WARNING! This will unassign ALL planned articles in this aisle. Are you sure?' },
-      style: "background-color: #d9534f; color: white; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer;" %>
+      style: "background-color:#d9534f;color:white;padding:8px 15px;border:none;border-radius:4px;" %>
 </div>
 
 <% @sections.each do |section| %>
   <div class="card col-12" style="border:1px solid #ccc; padding:12px; margin-bottom:16px;">
-    <h3>Section <%= section.section_num %></h3>
+    <h3>Section <%= link_to section.section_num, section %></h3>
+
     <p>
       <strong>Section Height:</strong> <%= section.section_height %> mm<br>
-      <strong>Used Height:</strong> <%= section.levels.sum { |l| l.level_height.to_f }.round(1) %> mm
-      <strong>Section Width:</strong> <%= section.section_width %> <br>
-      <strong>Section Depth:</strong> <%= section.section_depth %>
+      <strong>Used Height:</strong> <%= section.levels.sum { |l| l.level_height.to_f }.round(1) %> mm<br>
+      <strong>Section Width:</strong> <%= section.section_width %> mm<br>
+      <strong>Section Depth:</strong> <%= section.section_depth %> mm
     </p>
 
-    <% if section.levels.any? %>
-      <% section.levels.order(:level_num).each do |level| %>
-        <div style="border:1px dashed #999; padding:10px; margin-bottom:10px;">
-          <h4>
-            Level <%= level.level_num %>
-            <span style="color:#555; font-size:0.9em;">
-              (Height: <%= level.level_height.to_f.round(2) %> mm)
-            </span>
-          </h4>
+    <% section.levels.order(:level_num).each do |level| %>
+      <div style="border:1px dashed #999; padding:10px; margin-bottom:10px;">
+        <h4>
+          Level <%= level.level_num %>
+          <span style="color:#555;font-size:0.9em">
+            (Height: <%= level.level_height.round(2) %> mm)
+          </span>
+        </h4>
 
-          <%
-            planned_articles = section.articles.select(&:planned?)
-            # SACRED RULE (Updated to 45%)
-            level_00_rule = ->(a) do
-              a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.rssq.to_f >= (a.palq.to_f * 0.45)))
-            end
+        <%
+          planned_articles = section.articles.select(&:planned?)
 
-            if level.level_num.to_s == "00"
-              articles = planned_articles.select { |a| level_00_rule.call(a) }
-            else
-              dt0_articles = planned_articles
-                .select { |a| a.dt == 0 && !level_00_rule.call(a) }
-                .sort_by { |a| a.weight_g.to_f }
+          level_00_rule = ->(a) do
+            a.dt == 1 ||
+              (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.rssq.to_f >= (a.palq.to_f * 0.45)))
+          end
 
-              non00_levels = section.levels.reject { |l| l.level_num.to_s == "00" }.sort_by(&:level_num)
-              idx = non00_levels.index(level) || 0
-              per_level = (dt0_articles.length.to_f / [non00_levels.length, 1].max).ceil
-              start = idx * per_level
-              articles = dt0_articles.slice(start, per_level) || []
-            end
-          %>
+          if level.level_num == "00"
+            articles = planned_articles.select { |a| level_00_rule.call(a) }
+          else
+            dt0_articles = planned_articles
+              .select { |a| a.dt == 0 && !level_00_rule.call(a) }
+              .sort_by { |a| a.weight_g.to_f }
 
-          <% if articles.any? %>
-            <table style="width:100%; border-collapse:collapse;">
-              <thead>
-                <tr style="background:#f4f4f4;">
-                  <th align="left">Art No</th>
-                  <th>Name</th>
-                  <th>DT</th>
-                  <th>Weight (g)</th>
-                  <th>Width</th>
-                  <th>Calc Height (mm)</th>
-                  <th>PA</th>
-                  <th>RSSQ</th>
-                  <th>PALQ</th>
+            non00 = section.levels.reject { |l| l.level_num == "00" }.sort_by(&:level_num)
+            idx = non00.index(level) || 0
+            per_level = (dt0_articles.size.to_f / [non00.size, 1].max).ceil
+            articles = dt0_articles.slice(idx * per_level, per_level) || []
+          end
+        %>
+
+        <% if articles.any? %>
+          <table style="width:100%; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f4f4f4">
+                <th>Art No</th>
+                <th>Name</th>
+                <th>DT</th>
+                <th>Weight</th>
+                <th>Width Used</th>
+                <th>Height</th>
+                <th>PA</th>
+                <th>RSSQ</th>
+                <th>PALQ</th>
+                <th>Badge</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% articles.each do |art| %>
+                <tr style="border-top:1px solid #ddd">
+                  <td><%= link_to art.artno, art %></td>
+                  <td><%= art.artname_unicode %></td>
+                  <td align="center"><%= art.dt %></td>
+                  <td align="right"><%= art.weight_g %></td>
+
+                  <td align="right">
+                    <% if art.plan_badge == 'M' %>
+                      <%= ((art.rssq.to_f / art.palq.to_f) * art.ul_width_gross.to_f).round(1) %>
+                    <% elsif level_00_rule.call(art) %>
+                      <%= art.ul_width_gross %>
+                    <% else %>
+                      <%= art.cp_width %>
+                    <% end %>
+                  </td>
+
+                  <td align="right"><%= art.effective_height.round(2) %></td>
+                  <td><%= art.pa %></td>
+                  <td><%= art.rssq %></td>
+                  <td><%= art.palq %></td>
+
+                  <td align="center">
+                    <% if art.plan_badge.present? %>
+                      <span style="
+                        padding:2px 6px;
+                        border-radius:4px;
+                        font-weight:bold;
+                        color:white;
+                        background:<%= art.plan_badge == 'M' ? '#d9534f' : '#0275d8' %>;
+                      ">
+                        <%= art.plan_badge %>
+                      </span>
+                    <% end %>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                <% articles.each do |art| %>
-                  <tr style="border-top:1px solid #ddd;">
-                    <td><%= link_to art.artno, art %></td>
-                    <td><%= art.artname_unicode %></td>
-                    <td align="center"><%= art.dt %></td>
-                    <td align="right"><%= art.weight_g %></td>
-                    <td align="right">
-                      <% if level_00_rule.call(art) %>
-                        <%= art.ul_width_gross %>
-                      <% else %>
-                        <%= art.cp_width %>
-                      <% end %>
-                    </td>
-                    <td align="right">
-                      <%= art.effective_height.round(2) %>
-                    </td>
-                    <td><%= art.pa.to_s %></td>
-                    <td><%= art.rssq %></td>
-                    <td><%= art.palq %></td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          <% else %>
-            <p style="color:#777;">No articles on this level</p>
-          <% end %>
-        </div>
-      <% end %>
-    <% else %>
-      <p style="color:#777;">No planned levels</p>
+              <% end %>
+            </tbody>
+          </table>
+        <% else %>
+          <p style="color:#777">No articles on this level</p>
+        <% end %>
+      </div>
     <% end %>
   </div>
 <% end %>
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    function toggleVossFilters() {
-      const modeRadio = document.querySelector('input[name="mode"]:checked');
-      if (!modeRadio) return;
-      const mode = modeRadio.value;
-      const vossFs = document.getElementById('voss-filters');
-      vossFs.style.display = (mode === 'voss_mode') ? 'block' : 'none';
-      vossFs.querySelectorAll('input').forEach(inp => inp.disabled = (mode !== 'voss_mode'));
-    }
-    
-    document.querySelectorAll('input[name="mode"]').forEach(radio => {
-      radio.addEventListener('change', toggleVossFilters);
-    });
-    toggleVossFilters(); 
-    
-    const highExpsaleCheckbox = document.getElementById('high_expsale_only');
-    const highExpsaleSubfilters = document.getElementById('high-expsale-subfilters');
-    function toggleHighExpsaleSubfilters() {
-      const show = highExpsaleCheckbox.checked;
-      highExpsaleSubfilters.style.display = show ? 'block' : 'none';
-      highExpsaleSubfilters.querySelectorAll('input').forEach(el => el.disabled = !show);
-    }
-    highExpsaleCheckbox.addEventListener('change', toggleHighExpsaleSubfilters);
-    toggleHighExpsaleSubfilters();
-  });
-</script>

@@ -31,133 +31,181 @@ class BinPlannerService
   private
 
   def base_section_planner(plan_strategy:)
-    # 1. Define the SACRED RULE (Updated to 45%)
-    level_00_rule = lambda do |a|
-      a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
+  # 1. Define the SACRED RULE (Updated to 45%)
+  level_00_rule = lambda do |a|
+    a.dt == 1 ||
+      (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
+  end
+
+  # DT=1 special width + badge logic
+  dt1_special_width = lambda do |art, section|
+    return nil unless art.dt == 1
+    return nil unless art.rssq.to_f > art.palq.to_f
+
+    if art.ul_length_gross.to_f * 2 > section.section_depth.to_f
+      multiplier = art.rssq.to_f / art.palq.to_f
+      {
+        width: multiplier * art.ul_width_gross.to_f,
+        badge: 'M'
+      }
+    else
+      {
+        width: art.ul_width_gross.to_f,
+        badge: 'B'
+      }
     end
+  end
 
-    # Helper to get width/length using Pallet (ul_) measurements if the rule is met
-    get_art_width = lambda do |a|
-      level_00_rule.call(a) ? a.ul_width_gross.to_f : a.cp_width.to_f
+  # Section-aware width helper
+  get_art_width = lambda do |art, section|
+    special = dt1_special_width.call(art, section)
+    return special[:width] if special
+
+    level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+  end
+
+  # Length helper (DT-aware)
+  get_art_length = lambda do |art|
+    level_00_rule.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
+  end
+
+  articles = base_articles_scope.to_a
+  Rails.logger.debug "[PLANNER] Master Pool: #{articles.count} articles found."
+
+  @deep_articles = []
+  @shallow_articles = []
+
+  articles.each do |art|
+    w = level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+    l = get_art_length.call(art)
+
+    next if w <= 0 || l <= 0
+
+    art.define_singleton_method(:article_width) { w }
+    art.define_singleton_method(:article_length) { l }
+
+    if l > 1524
+      @deep_articles << art
+    else
+      @shallow_articles << art
     end
+  end
 
-    get_art_length = lambda do |a|
-      level_00_rule.call(a) ? a.ul_length_gross.to_f : a.cp_length.to_f
-    end
+  queue = @shallow_articles + @deep_articles
+  available_sections_list = @aisle.sections.order(:section_num).to_a
+  planned_count = 0
 
-    articles = base_articles_scope.to_a
-    Rails.logger.debug "[PLANNER] Master Pool: #{articles.count} articles found."
+  section_height_map = available_sections_list.each_with_object({}) do |s, h|
+    other_levels_height = s.levels.where.not(level_num: "00").sum(:level_height).to_f
+    l00_height = s.levels.where(level_num: "00").maximum(:level_height).to_f
+    h[s.id] = s.section_height.to_f - (other_levels_height + l00_height)
+  end
 
-    @deep_articles = []
-    @shallow_articles = []
+  (0..19).each do |level_index|
+    break if queue.empty?
+    level_num_str = format("%02d", level_index)
 
-    articles.each do |art|
-      w = get_art_width.call(art)
-      l = get_art_length.call(art)
-      next if w <= 0 || l <= 0
-
-      art.define_singleton_method(:article_width) { w }
-      art.define_singleton_method(:article_length) { l }
-
-      if l > 1524
-        @deep_articles << art
-      else
-        @shallow_articles << art
-      end
-    end
-
-    queue = @shallow_articles + @deep_articles
-    available_sections_list = @aisle.sections.order(:section_num).to_a
-    planned_count = 0
-
-    section_height_map = available_sections_list.each_with_object({}) do |s, h|
-      other_levels_height = s.levels.where.not(level_num: "00").sum(:level_height).to_f
-      l00_height = s.levels.where(level_num: "00").maximum(:level_height).to_f
-      h[s.id] = s.section_height.to_f - (other_levels_height + l00_height)
-    end
-
-    (0..19).each do |level_index|
+    available_sections_list.each do |section|
       break if queue.empty?
-      level_num_str = format("%02d", level_index)
 
-      available_sections_list.each do |section|
-        break if queue.empty?
-
-        level_candidates = if level_index == 0
+      level_candidates =
+        if level_index == 0
           queue.select { |a| level_00_rule.call(a) }
         else
-          queue.select { |a| a.dt == 0 && !level_00_rule.call(a) }
-               .sort_by { |a| a.weight_g.to_f }
+          queue
+            .select { |a| a.dt == 0 && !level_00_rule.call(a) }
+            .sort_by { |a| a.weight_g.to_f }
         end
-        next if level_candidates.empty?
 
-        existing_level = section.levels.find_by(level_num: level_num_str)
-        
-        if existing_level
-          existing_articles = Article.where(section_id: section.id, planned: true).to_a.select do |a|
-            level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
+      next if level_candidates.empty?
+
+      existing_level = section.levels.find_by(level_num: level_num_str)
+
+      if existing_level
+        existing_articles = Article.where(section_id: section.id, planned: true).to_a.select do |a|
+          level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
+        end
+
+        used_w = existing_articles.sum { |art| get_art_width.call(art, section) }
+        remaining_width = section.section_width.to_f - used_w
+      else
+        next if level_index > 0 && section_height_map[section.id] <= 0
+        remaining_width = section.section_width.to_f
+      end
+
+      planned_for_level = []
+      width_cursor = remaining_width
+
+      level_candidates.each do |art|
+        next unless art.article_length.to_f <= section.section_depth.to_f
+
+        art_width = get_art_width.call(art, section)
+        next unless art_width <= width_cursor
+
+        planned_for_level << art
+        width_cursor -= art_width
+      end
+
+      next if planned_for_level.empty?
+
+      if existing_level
+        planned_for_level.each do |art|
+          special = dt1_special_width.call(art, section)
+
+          art.update!(
+            new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
+            section_id: section.id,
+            planned: true,
+            plan_badge: special&.dig(:badge)
+          )
+
+          queue.delete(art)
+          planned_count += 1
+        end
+
+        current_arts = Article.where(section_id: section.id, planned: true).to_a.select do |a|
+          level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
+        end
+
+        new_tallest = current_arts.map(&:effective_height).max.to_f
+        clr = current_arts.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+        height_diff = (new_tallest + clr) - existing_level.level_height
+
+        if height_diff > 0
+          existing_level.update!(level_height: new_tallest + clr)
+          section_height_map[section.id] -= height_diff
+        end
+      else
+        tallest_h = planned_for_level.map(&:effective_height).max.to_f
+        clr = planned_for_level.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+        level_height_needed = tallest_h + clr
+
+        if level_index == 0 || level_height_needed <= section_height_map[section.id]
+          section.levels.create!(level_num: level_num_str, level_height: level_height_needed)
+
+          planned_for_level.each do |art|
+            special = dt1_special_width.call(art, section)
+
+            art.update!(
+              new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
+              section_id: section.id,
+              planned: true,
+              plan_badge: special&.dig(:badge)
+            )
+
+            queue.delete(art)
+            planned_count += 1
           end
-          used_w = existing_articles.sum { |art| get_art_width.call(art) }
-          remaining_width = section.section_width.to_f - used_w
-        else
-          next if level_index > 0 && section_height_map[section.id] <= 0
-          remaining_width = section.section_width.to_f
-        end
 
-        planned_for_level = []
-        width_cursor = remaining_width
-
-        level_candidates.each do |art|
-          next unless art.article_length.to_f <= section.section_depth.to_f
-          next unless art.article_width.to_f <= width_cursor
-
-          planned_for_level << art
-          width_cursor -= art.article_width.to_f
-        end
-
-        if planned_for_level.any?
-          if existing_level
-            planned_for_level.each do |art|
-              art.update!(new_assq: art.split_rssq) if art.dt == 0 && art.mpq.to_i == 1
-              art.update!(section_id: section.id, planned: true)
-              queue.delete(art)
-              planned_count += 1
-            end
-
-            current_arts = Article.where(section_id: section.id, planned: true).to_a.select do |a|
-              level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
-            end
-
-            new_tallest = current_arts.map(&:effective_height).max.to_f
-            clr = current_arts.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
-            height_diff = (new_tallest + clr) - existing_level.level_height
-            
-            if height_diff > 0
-              existing_level.update!(level_height: new_tallest + clr)
-              section_height_map[section.id] -= height_diff
-            end
-          else
-            tallest_h = planned_for_level.map(&:effective_height).max.to_f
-            clr = planned_for_level.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
-            level_height_needed = tallest_h + clr
-
-            if level_index == 0 || level_height_needed <= section_height_map[section.id]
-              section.levels.create!(level_num: level_num_str, level_height: level_height_needed)
-              planned_for_level.each do |art|
-                art.update!(new_assq: art.split_rssq) if art.dt == 0 && art.mpq.to_i == 1
-                art.update!(section_id: section.id, planned: true)
-                queue.delete(art)
-                planned_count += 1
-              end
-              section_height_map[section.id] -= level_height_needed
-            end
-          end
+          section_height_map[section.id] -= level_height_needed
         end
       end
     end
-
-    { success: true, planned_count: planned_count, unplanned_count: queue.count }
   end
+
+  { success: true, planned_count: planned_count, unplanned_count: queue.count }
+end
+
 
   def plan_non_opul; base_section_planner(plan_strategy: :non_opul); end
   def plan_opul; base_section_planner(plan_strategy: :opul); end
