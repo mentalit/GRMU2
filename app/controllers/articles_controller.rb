@@ -21,15 +21,26 @@ class ArticlesController < ApplicationController
   end
  
   def import
-    Articles::CsvImporter.import(
-      params[:csv_file_1],
-      params[:csv_file_2],
-      store: @store
-    )
+  store = Store.find(params[:store_id])
 
-    redirect_to store_articles_path(@store),
-                notice: "Articles imported successfully"
-  end
+  csv1_path = save_temp_file(params[:csv_file_1])
+  csv2_path = save_temp_file(params[:csv_file_2])
+
+  ArticlesImportJob.perform_later(
+    store.id,
+    csv1_path,
+    csv2_path
+  )
+
+  redirect_to store_articles_path(store),
+              notice: "Import started. This may take a few minutes."
+end
+
+
+
+
+
+
 
 
   def destroy_all
@@ -109,6 +120,22 @@ end
   end
 
   private
+
+
+    def save_temp_file(uploaded_file)
+      return nil unless uploaded_file
+
+      path = Rails.root.join(
+        "tmp",
+        "#{SecureRandom.uuid}_#{uploaded_file.original_filename}"
+      )
+
+      File.open(path, "wb") do |file|
+        file.write(uploaded_file.read)
+      end
+
+  path.to_s
+end
 
     # Use callbacks to share common setup or constraints between actions.
     def set_article

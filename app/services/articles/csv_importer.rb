@@ -9,7 +9,7 @@ module Articles
       # 1️⃣ Read FIRST CSV — establish allowed ARTNOs
       allowed_artnos = Set.new
 
-     CSV.foreach(csv1.path, headers: true) do |row|
+     CSV.foreach(csv1, headers: true) do |row|
         attrs = normalize_row(row)
         artno = attrs[:artno]
 
@@ -21,7 +21,7 @@ module Articles
       end
 
       # 2️⃣ Read SECOND CSV — only merge if ARTNO exists in CSV #1
-      CSV.foreach(csv2.path, headers: true) do |row|
+      CSV.foreach(csv2, headers: true) do |row|
         attrs = normalize_row(row)
         artno = attrs[:artno]
 
