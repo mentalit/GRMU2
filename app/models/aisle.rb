@@ -8,6 +8,21 @@ class Aisle < ApplicationRecord
   after_create :create_sections
   after_update_commit :sync_sections, if: :sync_sections?
 
+   def add_sections(count)
+  Rails.logger.info "ADDING #{count} SECTIONS TO AISLE #{id}"
+
+  next_section_num = sections.maximum(:section_num).to_i + 1
+
+  count.times do |i|
+    sections.create!(
+      section_num: next_section_num + i,
+      section_depth: aisle_depth,
+      section_height: aisle_height,
+      section_width: aisle_section_width
+    )
+  end
+end
+
   private
 
   def create_sections
@@ -35,4 +50,6 @@ class Aisle < ApplicationRecord
       saved_change_to_aisle_height? ||
       saved_change_to_aisle_section_width?
   end
+
+
 end

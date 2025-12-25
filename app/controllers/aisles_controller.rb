@@ -37,16 +37,30 @@ class AislesController < ApplicationController
 
   # PATCH/PUT /aisles/1 or /aisles/1.json
   def update
-    respond_to do |format|
-      if @aisle.update(aisle_params)
-        format.html { redirect_to @aisle, notice: "Aisle was successfully updated.", status: :see_other }
-        format.json { render :show, status: :ok, location: @aisle }
-      else
-        format.html { render :edit, status: :unprocessable_entity }
-        format.json { render json: @aisle.errors, status: :unprocessable_entity }
+  respond_to do |format|
+    if @aisle.update(aisle_params)
+
+      desired = @aisle.aisle_sections.to_i
+      current = @aisle.sections.count
+
+      if desired > current
+        @aisle.add_sections(desired - current)
       end
+
+      format.html do
+        redirect_to @aisle,
+          notice: "Aisle was successfully updated.",
+          status: :see_other
+      end
+
+      format.json { render :show, status: :ok, location: @aisle }
+
+    else
+      format.html { render :edit, status: :unprocessable_entity }
+      format.json { render json: @aisle.errors, status: :unprocessable_entity }
     end
   end
+end
 
   # DELETE /aisles/1 or /aisles/1.json
   def destroy
