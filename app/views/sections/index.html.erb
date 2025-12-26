@@ -101,7 +101,8 @@
 
     <p>
       <strong>Section Height:</strong> <%= section.section_height %> mm<br>
-      <strong>Used Height:</strong> <%= section.levels.sum { |l| l.level_height.to_f }.round(1) %> mm<br>
+      <strong>Used Height:</strong>
+      <%= section.levels.sum { |l| l.level_height.to_f }.round(1) %> mm<br>
       <strong>Section Width:</strong> <%= section.section_width %> mm<br>
       <strong>Section Depth:</strong> <%= section.section_depth %> mm
     </p>
@@ -115,27 +116,7 @@
           </span>
         </h4>
 
-        <%
-          planned_articles = section.articles.select(&:planned?)
-
-          level_00_rule = ->(a) do
-            a.dt == 1 ||
-              (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.rssq.to_f >= (a.palq.to_f * 0.45)))
-          end
-
-          if level.level_num == "00"
-            articles = planned_articles.select { |a| level_00_rule.call(a) }
-          else
-            dt0_articles = planned_articles
-              .select { |a| a.dt == 0 && !level_00_rule.call(a) }
-              .sort_by { |a| a.weight_g.to_f }
-
-            non00 = section.levels.reject { |l| l.level_num == "00" }.sort_by(&:level_num)
-            idx = non00.index(level) || 0
-            per_level = (dt0_articles.size.to_f / [non00.size, 1].max).ceil
-            articles = dt0_articles.slice(idx * per_level, per_level) || []
-          end
-        %>
+        <% articles = section.articles.where(level_id: level.id, planned: true) %>
 
         <% if articles.any? %>
           <table style="width:100%; border-collapse:collapse;">
@@ -150,11 +131,15 @@
                 <th>PA</th>
                 <th>RSSQ</th>
                 <th>PALQ</th>
-                <th>Badge</th>
+                <th>Badges</th>
+                <th>Unassign</th>
               </tr>
             </thead>
+
             <tbody>
               <% articles.each do |art| %>
+                <% qualifies_for_mb = art.rssq.to_f > art.palq.to_f * 1.50 %>
+
                 <tr style="border-top:1px solid #ddd">
                   <td><%= link_to art.artno, art %></td>
                   <td><%= art.artname_unicode %></td>
@@ -162,9 +147,13 @@
                   <td align="right"><%= art.weight_g %></td>
 
                   <td align="right">
-                    <% if art.plan_badge == 'M' %>
-                      <%= ((art.rssq.to_f / art.palq.to_f) * art.ul_width_gross.to_f).round(1) %>
-                    <% elsif level_00_rule.call(art) %>
+                    <% if art.plan_badge&.include?('M') && qualifies_for_mb %>
+                      <%= (art.ul_width_gross.to_f * 2).round(1) %>
+                    <% elsif art.plan_badge&.include?('B') && qualifies_for_mb %>
+                      <%= (art.ul_width_gross.to_f * 2).round(1) %>
+                    <% elsif art.plan_badge&.include?('O') %>
+                      <%= art.ul_width_gross %>
+                    <% elsif art.level.level_num == "00" %>
                       <%= art.ul_width_gross %>
                     <% else %>
                       <%= art.cp_width %>
@@ -178,16 +167,35 @@
 
                   <td align="center">
                     <% if art.plan_badge.present? %>
-                      <span style="
-                        padding:2px 6px;
-                        border-radius:4px;
-                        font-weight:bold;
-                        color:white;
-                        background:<%= art.plan_badge == 'M' ? '#d9534f' : '#0275d8' %>;
-                      ">
-                        <%= art.plan_badge %>
-                      </span>
+                      <% art.plan_badge.each_char do |badge| %>
+                        <% next if ['M','B'].include?(badge) && !qualifies_for_mb %>
+                        <span
+                          style="
+                            padding:2px 6px;
+                            border-radius:4px;
+                            font-weight:bold;
+                            color:white;
+                            margin-right:3px;
+                            background:
+                              <%= case badge
+                                  when 'M' then '#d9534f'
+                                  when 'B' then '#0275d8'
+                                  when 'O' then '#6f42c1'
+                                  else '#999'
+                                end %>;
+                          ">
+                          <%= badge %>
+                        </span>
+                      <% end %>
                     <% end %>
+                  </td>
+
+                  <td align="center">
+                    <%= button_to "Unassign",
+                          unassign_article_path(art),
+                          method: :patch,
+                          data: { confirm: "Unassign article #{art.artno}?" },
+                          style: "background-color:#f0ad4e;color:white;padding:4px 8px;border:none;border-radius:4px;" %>
                   </td>
                 </tr>
               <% end %>
@@ -200,5 +208,7 @@
     <% end %>
   </div>
 <% end %>
+
+
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>

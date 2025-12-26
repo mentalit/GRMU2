@@ -19,7 +19,7 @@ class BinPlannerService
     plan_method = "plan_#{mode.chomp('_mode')}"
 
     if respond_to?(plan_method, true)
-      return send(plan_method)
+      return send(plan_method, plan_strategy: mode.chomp('_mode').to_sym)
     else
       return { success: false, message: "Invalid planning mode: #{mode}" }
     end
@@ -30,45 +30,13 @@ class BinPlannerService
 
   private
 
-  def base_section_planner(plan_strategy:)
-  # 1. Define the SACRED RULE (Updated to 45%)
-  level_00_rule = lambda do |a|
-    a.dt == 1 ||
-      (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
-  end
-
-  # DT=1 special width + badge logic
-  dt1_special_width = lambda do |art, section|
-    return nil unless art.dt == 1
-    return nil unless art.rssq.to_f > art.palq.to_f
-
-    if art.ul_length_gross.to_f * 2 > section.section_depth.to_f
-      multiplier = art.rssq.to_f / art.palq.to_f
-      {
-        width: multiplier * art.ul_width_gross.to_f,
-        badge: 'M'
-      }
-    else
-      {
-        width: art.ul_width_gross.to_f,
-        badge: 'B'
-      }
-    end
-  end
-
-  # Section-aware width helper
-  get_art_width = lambda do |art, section|
-    special = dt1_special_width.call(art, section)
-    return special[:width] if special
-
-    level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
-  end
-
-  # Length helper (DT-aware)
-  get_art_length = lambda do |art|
-    level_00_rule.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
-  end
-
+  def base_section_planner(
+  plan_strategy:,
+  can_go_on_level_00:,
+  width_for:,
+  length_for:,
+  badge_for:
+)
   articles = base_articles_scope.to_a
   Rails.logger.debug "[PLANNER] Master Pool: #{articles.count} articles found."
 
@@ -76,8 +44,8 @@ class BinPlannerService
   @shallow_articles = []
 
   articles.each do |art|
-    w = level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
-    l = get_art_length.call(art)
+    w = width_for.call(art, nil)
+    l = length_for.call(art)
 
     next if w <= 0 || l <= 0
 
@@ -110,11 +78,9 @@ class BinPlannerService
 
       level_candidates =
         if level_index == 0
-          queue.select { |a| level_00_rule.call(a) }
+          queue.select { |a| can_go_on_level_00.call(a) }
         else
-          queue
-            .select { |a| a.dt == 0 && !level_00_rule.call(a) }
-            .sort_by { |a| a.weight_g.to_f }
+          queue.reject { |a| can_go_on_level_00.call(a) }
         end
 
       next if level_candidates.empty?
@@ -123,10 +89,10 @@ class BinPlannerService
 
       if existing_level
         existing_articles = Article.where(section_id: section.id, planned: true).to_a.select do |a|
-          level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
+          level_index == 0 ? can_go_on_level_00.call(a) : !can_go_on_level_00.call(a)
         end
 
-        used_w = existing_articles.sum { |art| get_art_width.call(art, section) }
+        used_w = existing_articles.sum { |art| width_for.call(art, section) }
         remaining_width = section.section_width.to_f - used_w
       else
         next if level_index > 0 && section_height_map[section.id] <= 0
@@ -139,7 +105,7 @@ class BinPlannerService
       level_candidates.each do |art|
         next unless art.article_length.to_f <= section.section_depth.to_f
 
-        art_width = get_art_width.call(art, section)
+        art_width = width_for.call(art, section)
         next unless art_width <= width_cursor
 
         planned_for_level << art
@@ -150,13 +116,12 @@ class BinPlannerService
 
       if existing_level
         planned_for_level.each do |art|
-          special = dt1_special_width.call(art, section)
-
           art.update!(
             new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
             section_id: section.id,
+            level: existing_level,
             planned: true,
-            plan_badge: special&.dig(:badge)
+            plan_badge: badge_for.call(art, section)
           )
 
           queue.delete(art)
@@ -164,11 +129,11 @@ class BinPlannerService
         end
 
         current_arts = Article.where(section_id: section.id, planned: true).to_a.select do |a|
-          level_index == 0 ? level_00_rule.call(a) : (a.dt == 0 && !level_00_rule.call(a))
+          level_index == 0 ? can_go_on_level_00.call(a) : !can_go_on_level_00.call(a)
         end
 
         new_tallest = current_arts.map(&:effective_height).max.to_f
-        clr = current_arts.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+        clr = current_arts.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
         height_diff = (new_tallest + clr) - existing_level.level_height
 
         if height_diff > 0
@@ -177,20 +142,22 @@ class BinPlannerService
         end
       else
         tallest_h = planned_for_level.map(&:effective_height).max.to_f
-        clr = planned_for_level.any? { |a| a.dt == 1 || (a.dt == 0 && a.split_rssq.to_f >= (a.palq.to_f * 0.45)) } ? 254.0 : 127.0
+        clr = planned_for_level.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
         level_height_needed = tallest_h + clr
 
         if level_index == 0 || level_height_needed <= section_height_map[section.id]
-          section.levels.create!(level_num: level_num_str, level_height: level_height_needed)
+          new_level = section.levels.create!(
+            level_num: level_num_str,
+            level_height: level_height_needed
+          )
 
           planned_for_level.each do |art|
-            special = dt1_special_width.call(art, section)
-
             art.update!(
               new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
               section_id: section.id,
+              level: new_level,
               planned: true,
-              plan_badge: special&.dig(:badge)
+              plan_badge: badge_for.call(art, section)
             )
 
             queue.delete(art)
@@ -207,8 +174,163 @@ class BinPlannerService
 end
 
 
-  def plan_non_opul; base_section_planner(plan_strategy: :non_opul); end
-  def plan_opul; base_section_planner(plan_strategy: :opul); end
+
+
+  def plan_non_opul(plan_strategy:)
+  # Sacred rule preserved exactly as before
+  level_00_rule = lambda do |a|
+    a.dt == 1 ||
+      (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
+  end
+
+  # DT=1 special width + badge logic (unchanged)
+  dt1_special_width = lambda do |art, section|
+    return nil unless art.dt == 1
+    return nil unless art.rssq.to_f > art.palq.to_f
+
+    if art.ul_length_gross.to_f * 2 > section.section_depth.to_f
+      multiplier = art.rssq.to_f / art.palq.to_f
+      {
+        width: multiplier * art.ul_width_gross.to_f,
+        badge: 'M'
+      }
+    else
+      {
+        width: art.ul_width_gross.to_f,
+        badge: 'B'
+      }
+    end
+  end
+
+  # Width policy (section-aware)
+  width_for = lambda do |art, section|
+    special = section && dt1_special_width.call(art, section)
+    return special[:width] if special
+
+    level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+  end
+
+  # Length policy
+  length_for = lambda do |art|
+    level_00_rule.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
+  end
+
+  # Badge policy
+  badge_for = lambda do |art, section|
+    special = section && dt1_special_width.call(art, section)
+    special&.dig(:badge)
+  end
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: level_00_rule,
+    width_for: width_for,
+    length_for: length_for,
+    badge_for: badge_for
+  )
+end
+
+def plan_opul(plan_strategy:)
+  opul_blocked_strings = [
+    "RTS SS FS Modul",
+    "RTS MH Module"
+  ]
+
+  is_opul = ->(a) { opul_blocked_strings.include?(a.sal_sol_indic) }
+
+  # 🚫 OPUL can NEVER go on level 00
+  can_go_on_level_00 = lambda do |a|
+    return false if is_opul.call(a)
+
+    a.dt == 1 ||
+      (a.dt == 0 && (
+        a.weight_g.to_f > 18_143.7 ||
+        a.split_rssq.to_f >= (a.palq.to_f * 0.45)
+      ))
+  end
+
+  # DT=1 M/B logic (150% gate enforced)
+  dt1_special_width = lambda do |art, section|
+    return nil unless art.dt == 1
+    return nil unless art.rssq.to_f > art.palq.to_f * 1.50
+
+    {
+      width: art.ul_width_gross.to_f * 2,
+      badge: art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? 'M' : 'B'
+    }
+  end
+
+  # Width policy
+  width_for = lambda do |art, section|
+    return art.ul_width_gross.to_f if is_opul.call(art)
+
+    special = section && dt1_special_width.call(art, section)
+    return special[:width] if special
+
+    can_go_on_level_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+  end
+
+  # Length policy
+  length_for = lambda do |art|
+    return art.ul_length_gross.to_f if is_opul.call(art)
+
+    can_go_on_level_00.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
+  end
+
+  # Badge policy
+  badge_for = lambda do |art, section|
+    badges = []
+
+    special = section && dt1_special_width.call(art, section)
+    badges << special[:badge] if special&.dig(:badge)
+
+    badges << 'O' if is_opul.call(art)
+
+    badges.presence&.join
+  end
+
+  # ===============================
+  # 🔥 OPUL HEIGHT + WIDTH GREEDY
+  # ===============================
+
+  height_bucket_mm = 50  # ← FIX: local variable, NOT constant
+
+  original_scope = base_articles_scope.to_a
+
+  non_opul_articles = original_scope.reject { |a| is_opul.call(a) }
+  opul_articles     = original_scope.select { |a| is_opul.call(a) }
+
+  # Bucket OPUL articles by similar height
+  buckets = opul_articles.group_by do |a|
+    (a.effective_height.to_f / height_bucket_mm).floor
+  end
+
+  # Tallest buckets first, width-greedy inside each bucket
+  sorted_opul =
+    buckets.keys.sort.reverse.flat_map do |bucket|
+      buckets[bucket].sort_by { |a| -width_for.call(a, nil) }
+    end
+
+  # Rebuild article order:
+  # non-OPUL first (eligible for level 00)
+  # OPUL after (levels 01+ only)
+  define_singleton_method(:base_articles_scope) do
+    non_opul_articles + sorted_opul
+  end
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    badge_for: badge_for
+  )
+end
+
+
+
+
+
   def plan_countertop; base_section_planner(plan_strategy: :countertop); end
   def plan_voss; base_section_planner(plan_strategy: :voss_assignment); end
   def plan_pallet; base_section_planner(plan_strategy: :pallet_assignment); end

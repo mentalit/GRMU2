@@ -141,7 +141,7 @@
 
   <p>
     <strong>New loc:</strong>
-    <%= article.new_loc %>
+    <%= article.section.aisle.aisle_num %> <%= article.section.section_num  %> <%= article.level.level_num %>
   </p>
 
   <p>
@@ -152,6 +152,11 @@
   <p>
     <strong>Planned?:</strong>
     <%= article.planned %>
+  </p>
+
+  <p>
+    <strong>Level Number:</strong>
+    <%= article.level.level_num %>
   </p>
 
   <p>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_12_24_041112) do
+ActiveRecord::Schema[7.1].define(version: 2025_12_26_022737) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -60,8 +60,9 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_24_041112) do
     t.datetime "updated_at", null: false
     t.boolean "planned"
     t.bigint "section_id"
-    t.integer "level_number"
     t.string "plan_badge"
+    t.bigint "level_id"
+    t.index ["level_id"], name: "index_articles_on_level_id"
     t.index ["section_id"], name: "index_articles_on_section_id"
     t.index ["store_id"], name: "index_articles_on_store_id"
   end
@@ -106,6 +107,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_24_041112) do
   end
 
   add_foreign_key "aisles", "pairs"
+  add_foreign_key "articles", "levels"
   add_foreign_key "articles", "sections"
   add_foreign_key "articles", "stores"
   add_foreign_key "levels", "sections"
