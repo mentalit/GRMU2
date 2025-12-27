@@ -332,7 +332,31 @@ end
 
 
   def plan_countertop; base_section_planner(plan_strategy: :countertop); end
-  def plan_voss; base_section_planner(plan_strategy: :voss_assignment); end
+
+ def plan_voss(plan_strategy:)
+  # VOSS rules: CP-only, never level 00, no badges
+
+  can_go_on_level_00 = ->(_art) { false }
+
+  width_for = ->(art, _section) do
+    art.cp_width.to_f
+  end
+
+  length_for = ->(art) do
+    art.cp_length.to_f
+  end
+
+  badge_for = ->(_art, _section) { nil }
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    badge_for: badge_for
+  )
+end
+
   def plan_pallet; base_section_planner(plan_strategy: :pallet_assignment); end
 
   def base_articles_scope
@@ -373,7 +397,7 @@ end
     scope = scope.where('cp_height <= ?', @params[:voss_cp_height_max]) if @params[:voss_cp_height_max].present?
     scope = scope.where('cp_length <= ?', @params[:voss_cp_length_max]) if @params[:voss_cp_length_max].present?
     scope = scope.where('cp_width <= ?', @params[:voss_cp_width_max]) if @params[:voss_cp_width_max].present?
-    scope = scope.where('split_rssq <= ?', @params[:voss_split_rssq_max]) if @params[:voss_split_rssq_max].present?
+    scope = scope.where('split_rssq <= ?', @params[:voss_rssq_max]) if @params[:voss_rssq_max].present?
     scope = scope.where('expsale <= ?', @params[:voss_expsale_max]) if @params[:voss_expsale_max].present?
     scope = scope.where('weight_g <= ?', @params[:voss_weight_g_max]) if @params[:voss_weight_g_max].present?
     scope

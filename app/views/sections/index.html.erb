@@ -11,7 +11,8 @@
     <% ['non_opul', 'opul', 'countertop', 'voss', 'pallet'].each do |mode| %>
       <label>
         <%= radio_button_tag :mode, "#{mode}_mode",
-          (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')) %>
+          (params[:mode] == "#{mode}_mode" || (params[:mode].blank? && mode == 'non_opul')),
+          id: "mode_#{mode}" %>
         <%= mode.humanize %>
       </label>
     <% end %>
@@ -82,6 +83,26 @@
 
 <%= submit_tag "Run Bin Planner" %>
 <% end %>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const vossRadio = document.getElementById("mode_voss");
+    const vossFilters = document.getElementById("voss-filters");
+    const modeRadios = document.querySelectorAll("input[name='mode']");
+
+    if (!vossRadio || !vossFilters) return;
+
+    function toggleVossFilters() {
+      vossFilters.style.display = vossRadio.checked ? "block" : "none";
+    }
+
+    modeRadios.forEach(radio => {
+      radio.addEventListener("change", toggleVossFilters);
+    });
+
+    toggleVossFilters();
+  });
+</script>
 
 <hr>
 
@@ -208,7 +229,6 @@
     <% end %>
   </div>
 <% end %>
-
 
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
