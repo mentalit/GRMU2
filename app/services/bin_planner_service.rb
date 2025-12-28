@@ -349,6 +349,30 @@ end
   badge_for = ->(_art, _section) { nil }
 
   base_section_planner(
+      plan_strategy: plan_strategy,
+      can_go_on_level_00: can_go_on_level_00,
+      width_for: width_for,
+      length_for: length_for, 
+      badge_for: badge_for
+    )
+  end
+
+  def plan_pallet(plan_strategy:)
+  # PALLET rules: UL-only, never level 00, no badges
+
+  can_go_on_level_00 = ->(_art) { false }
+
+  width_for = ->(art, _section) do
+    art.ul_width_gross.to_f
+  end
+
+  length_for = ->(art) do
+    art.ul_length_gross.to_f
+  end
+
+  badge_for = ->(_art, _section) { nil }
+
+  base_section_planner(
     plan_strategy: plan_strategy,
     can_go_on_level_00: can_go_on_level_00,
     width_for: width_for,
@@ -356,8 +380,6 @@ end
     badge_for: badge_for
   )
 end
-
-  def plan_pallet; base_section_planner(plan_strategy: :pallet_assignment); end
 
   def base_articles_scope
     scope = @aisle.pair.store.articles
@@ -372,7 +394,14 @@ end
     end
 
     scope = scope.where(planned: [false, nil])
-    scope = apply_voss_gates(scope) if planning_mode == 'voss_mode'
+
+  case planning_mode
+    when 'voss_mode'
+      scope = apply_voss_gates(scope)
+    when 'pallet_mode'
+      scope = apply_pallet_gates(scope)
+  end
+
     scope
   end
 
@@ -402,4 +431,18 @@ end
     scope = scope.where('weight_g <= ?', @params[:voss_weight_g_max]) if @params[:voss_weight_g_max].present?
     scope
   end
+
+ def apply_pallet_gates(scope)
+  scope = scope.where(dt: 1)
+
+  scope = scope.where('ul_height_gross <= ?', @params[:voss_ul_height_max]) if @params[:voss_ul_height_max].present?
+  scope = scope.where('ul_length_gross <= ?', @params[:voss_ul_length_max]) if @params[:voss_ul_length_max].present?
+  scope = scope.where('ul_width_gross  <= ?', @params[:voss_ul_width_max])  if @params[:voss_ul_width_max].present?
+
+  scope = scope.where('split_rssq <= ?', @params[:voss_rssq_max])     if @params[:voss_rssq_max].present?
+  scope = scope.where('expsale <= ?',    @params[:voss_expsale_max])  if @params[:voss_expsale_max].present?
+  scope = scope.where('weight_g <= ?',   @params[:voss_weight_g_max]) if @params[:voss_weight_g_max].present?
+
+  scope
+end
 end

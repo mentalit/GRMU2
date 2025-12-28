@@ -55,7 +55,9 @@
     </div>
   </fieldset>
 
-  <% is_voss = params[:mode] == 'voss_mode' %>
+  <% is_voss   = params[:mode] == 'voss_mode' %>
+  <% is_pallet = params[:mode] == 'pallet_mode' %>
+
   <fieldset id="voss-filters" style="display:<%= is_voss ? 'block' : 'none' %>;">
     <legend>VOSS Gates (optional)</legend>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
@@ -79,6 +81,36 @@
       </label>
     </div>
   </fieldset>
+
+ <fieldset id="pallet-filters" style="display:<%= is_pallet ? 'block' : 'none' %>;">
+  <legend>PALLET Gates (optional)</legend>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap">
+    <label>Max UL_HEIGHT (mm)
+      <%= number_field_tag :voss_ul_height_max, params[:voss_ul_height_max], step: 0.01 %>
+    </label>
+
+    <label>Max UL_LENGTH (mm)
+      <%= number_field_tag :voss_ul_length_max, params[:voss_ul_length_max], step: 0.01 %>
+    </label>
+
+    <label>Max UL_WIDTH (mm)
+      <%= number_field_tag :voss_ul_width_max, params[:voss_ul_width_max], step: 0.01 %>
+    </label>
+
+    <label>Max RSSQ
+      <%= number_field_tag :voss_rssq_max, params[:voss_rssq_max] || 10, step: 1 %>
+    </label>
+
+    <label>Max EXPSALE
+      <%= number_field_tag :voss_expsale_max, params[:voss_expsale_max] || 5.0, step: 0.01 %>
+    </label>
+
+    <label>Max WEIGHT_G (g)
+      <%= number_field_tag :voss_weight_g_max, params[:voss_weight_g_max] || 4536, step: 1 %>
+    </label>
+  </div>
+</fieldset>
 </div>
 
 <%= submit_tag "Run Bin Planner" %>
@@ -86,21 +118,27 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const vossRadio = document.getElementById("mode_voss");
-    const vossFilters = document.getElementById("voss-filters");
+    const vossRadio   = document.getElementById("mode_voss");
+    const palletRadio = document.getElementById("mode_pallet");
+
+    const vossFilters   = document.getElementById("voss-filters");
+    const palletFilters = document.getElementById("pallet-filters");
+
     const modeRadios = document.querySelectorAll("input[name='mode']");
 
-    if (!vossRadio || !vossFilters) return;
+    function toggleFilters() {
+      if (vossFilters)
+        vossFilters.style.display = vossRadio?.checked ? "block" : "none";
 
-    function toggleVossFilters() {
-      vossFilters.style.display = vossRadio.checked ? "block" : "none";
+      if (palletFilters)
+        palletFilters.style.display = palletRadio?.checked ? "block" : "none";
     }
 
     modeRadios.forEach(radio => {
-      radio.addEventListener("change", toggleVossFilters);
+      radio.addEventListener("change", toggleFilters);
     });
 
-    toggleVossFilters();
+    toggleFilters();
   });
 </script>
 
@@ -153,6 +191,7 @@
                 <th>RSSQ</th>
                 <th>PALQ</th>
                 <th>Badges</th>
+                <th>Current Loc</th>
                 <th>Unassign</th>
               </tr>
             </thead>
@@ -211,6 +250,8 @@
                     <% end %>
                   </td>
 
+                  <td><%= art.slid_h %></td>
+
                   <td align="center">
                     <%= button_to "Unassign",
                           unassign_article_path(art),
@@ -229,6 +270,5 @@
     <% end %>
   </div>
 <% end %>
-
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
