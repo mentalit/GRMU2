@@ -51,7 +51,7 @@ class BinPlannerService
 
   return base_width unless badge == 'M'
 
-  # 🔥 ONLY M inflates width
+  # ONLY M inflates width
   multiplier = art.rssq.to_f / art.palq.to_f
   base_width * multiplier
 end
@@ -127,6 +127,7 @@ end
 
         art_width = inflated_width_for.call(art, section)
 
+        # ENFORCEMENT: The combined width can never exceed section_width
         next unless art_width <= width_cursor
 
         planned_for_level << art
@@ -195,17 +196,12 @@ end
   { success: true, planned_count: planned_count, unplanned_count: queue.count }
 end
 
-
-
-
   def plan_non_opul(plan_strategy:)
-  # Sacred rule preserved exactly as before
   level_00_rule = lambda do |a|
     a.dt == 1 ||
       (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
   end
 
-  # DT=1 special width + badge logic (unchanged)
   dt1_special_width = lambda do |art, section|
     return nil unless art.dt == 1
     return nil unless art.rssq.to_f > art.palq.to_f
@@ -213,18 +209,15 @@ end
     if art.ul_length_gross.to_f * 2 > section.section_depth.to_f
       multiplier = art.rssq.to_f / art.palq.to_f
       {
-        
         badge: 'M'
       }
     else
       {
-      
         badge: 'B'
       }
     end
   end
 
-  # Width policy (section-aware)
   width_for = lambda do |art, section|
     special = section && dt1_special_width.call(art, section)
     return special[:width] if special && special[:badge] == 'M'
@@ -232,12 +225,10 @@ end
     level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
   end
 
-  # Length policy
   length_for = lambda do |art|
     level_00_rule.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
   end
 
-  # Badge policy
   badge_for = lambda do |art, section|
     special = section && dt1_special_width.call(art, section)
     special&.dig(:badge)
@@ -263,7 +254,6 @@ def plan_opul(plan_strategy:)
 
   is_opul = ->(a) { opul_blocked_strings.include?(a.sal_sol_indic) }
 
-  # 🚫 OPUL can NEVER go on level 00
   can_go_on_level_00 = lambda do |a|
     return false if is_opul.call(a)
 
@@ -274,7 +264,6 @@ def plan_opul(plan_strategy:)
       ))
   end
 
-  # DT=1 M/B logic (150% gate enforced)
   dt1_special_width = lambda do |art, section|
   {
     width: art.ul_width_gross.to_f * 2,
@@ -282,7 +271,6 @@ def plan_opul(plan_strategy:)
   }
 end
 
-  # Width policy
   width_for = lambda do |art, section|
     return art.ul_width_gross.to_f if is_opul.call(art)
 
@@ -292,14 +280,12 @@ end
     can_go_on_level_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
   end
 
-  # Length policy
   length_for = lambda do |art|
     return art.ul_length_gross.to_f if is_opul.call(art)
 
     can_go_on_level_00.call(art) ? art.ul_length_gross.to_f : art.cp_length.to_f
   end
 
-  # Badge policy
   badge_for = lambda do |art, section|
     badges = []
 
@@ -311,35 +297,6 @@ end
     badges.presence&.join
   end
 
-  # ===============================
-  # 🔥 OPUL HEIGHT + WIDTH GREEDY
-  # ===============================
-
-  height_bucket_mm = 50  # ← FIX: local variable, NOT constant
-
-  original_scope = base_articles_scope.to_a
-
-  non_opul_articles = original_scope.reject { |a| is_opul.call(a) }
-  opul_articles     = original_scope.select { |a| is_opul.call(a) }
-
-  # Bucket OPUL articles by similar height
-  buckets = opul_articles.group_by do |a|
-    (a.effective_height.to_f / height_bucket_mm).floor
-  end
-
-  # Tallest buckets first, width-greedy inside each bucket
-  sorted_opul =
-    buckets.keys.sort.reverse.flat_map do |bucket|
-      buckets[bucket].sort_by { |a| -width_for.call(a, nil) }
-    end
-
-  # Rebuild article order:
-  # non-OPUL first (eligible for level 00)
-  # OPUL after (levels 01+ only)
-  define_singleton_method(:base_articles_scope) do
-    non_opul_articles + sorted_opul
-  end
-
   height_for = ->(art) { art.effective_height.to_f }
 
   base_section_planner(
@@ -347,26 +304,16 @@ end
     can_go_on_level_00: can_go_on_level_00,
     width_for: width_for,
     length_for: length_for,
-     height_for: height_for,
+      height_for: height_for,
     badge_for: badge_for
   )
 end
 
-
-
-
-
  def plan_countertop(plan_strategy:)
-  # ============================
-  # COUNTERTOP RULES
-  # ============================
-
-  # Level 00 enforcement
   can_go_on_level_00 = lambda do |art|
     art.dt == 1 || art.weight_g.to_f > 27_215.5
   end
 
-  # Width policy
   width_for = lambda do |art, _section|
     if art.dt == 1
       art.ul_width_gross.to_f
@@ -375,7 +322,6 @@ end
     end
   end
 
-  # Length policy
   length_for = lambda do |art|
     if art.dt == 1
       art.ul_length_gross.to_f
@@ -384,7 +330,6 @@ end
     end
   end
 
-  # Height policy
   height_for = lambda do |art|
     if art.dt == 1
       art.ul_height_gross.to_f
@@ -393,7 +338,6 @@ end
     end
   end
 
-  # No badges for countertop
   badge_for = ->(_art, _section) { nil }
 
   base_section_planner(
@@ -406,10 +350,7 @@ end
   )
 end
 
-
  def plan_voss(plan_strategy:)
-  # VOSS rules: CP-only, never level 00, no badges
-
   can_go_on_level_00 = ->(_art) { false }
 
   width_for = ->(art, _section) do
@@ -435,8 +376,6 @@ end
   end
 
   def plan_pallet(plan_strategy:)
-  # PALLET rules: UL-only, never level 00, no badges
-
   can_go_on_level_00 = ->(_art) { false }
 
   width_for = ->(art, _section) do

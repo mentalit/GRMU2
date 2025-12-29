@@ -47,7 +47,7 @@
     </label>
 
     <div id="high-expsale-subfilters"
-         style="margin-top:6px; display:<%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
+          style="margin-top:6px; display:<%= params[:high_expsale_only].present? ? 'block' : 'none' %>;">
       <label style="display:inline-flex; gap:6px; align-items:center;">
         <%= check_box_tag :high_expsale_require_dt1, '1', params[:high_expsale_require_dt1].present? %>
         Also require <code>DT = 1</code>
