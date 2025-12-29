@@ -449,6 +449,8 @@ end
 
   badge_for = ->(_art, _section) { nil }
 
+  height_for = ->(art) { art.effective_height.to_f }
+
   base_section_planner(
     plan_strategy: plan_strategy,
     can_go_on_level_00: can_go_on_level_00,
