@@ -35,8 +35,27 @@ class BinPlannerService
   can_go_on_level_00:,
   width_for:,
   length_for:,
+  height_for:, 
   badge_for:
 )
+
+  inflated_width_for = lambda do |art, section|
+  badge = badge_for.call(art, section)
+
+  base_width =
+    if can_go_on_level_00.call(art)
+      art.ul_width_gross.to_f
+    else
+      art.cp_width.to_f
+    end
+
+  return base_width unless badge == 'M'
+
+  # 🔥 ONLY M inflates width
+  multiplier = art.rssq.to_f / art.palq.to_f
+  base_width * multiplier
+end
+
   articles = base_articles_scope.to_a
   Rails.logger.debug "[PLANNER] Master Pool: #{articles.count} articles found."
 
@@ -92,7 +111,8 @@ class BinPlannerService
           level_index == 0 ? can_go_on_level_00.call(a) : !can_go_on_level_00.call(a)
         end
 
-        used_w = existing_articles.sum { |art| width_for.call(art, section) }
+        used_w = existing_articles.sum { |art| inflated_width_for.call(art, section) }
+
         remaining_width = section.section_width.to_f - used_w
       else
         next if level_index > 0 && section_height_map[section.id] <= 0
@@ -105,7 +125,8 @@ class BinPlannerService
       level_candidates.each do |art|
         next unless art.article_length.to_f <= section.section_depth.to_f
 
-        art_width = width_for.call(art, section)
+        art_width = inflated_width_for.call(art, section)
+
         next unless art_width <= width_cursor
 
         planned_for_level << art
@@ -132,7 +153,7 @@ class BinPlannerService
           level_index == 0 ? can_go_on_level_00.call(a) : !can_go_on_level_00.call(a)
         end
 
-        new_tallest = current_arts.map(&:effective_height).max.to_f
+        new_tallest = current_arts.map { |a| height_for.call(a) }.max.to_f
         clr = current_arts.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
         height_diff = (new_tallest + clr) - existing_level.level_height
 
@@ -141,7 +162,8 @@ class BinPlannerService
           section_height_map[section.id] -= height_diff
         end
       else
-        tallest_h = planned_for_level.map(&:effective_height).max.to_f
+        tallest_h = planned_for_level.map { |a| height_for.call(a) }.max.to_f
+
         clr = planned_for_level.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
         level_height_needed = tallest_h + clr
 
@@ -191,12 +213,12 @@ end
     if art.ul_length_gross.to_f * 2 > section.section_depth.to_f
       multiplier = art.rssq.to_f / art.palq.to_f
       {
-        width: multiplier * art.ul_width_gross.to_f,
+        
         badge: 'M'
       }
     else
       {
-        width: art.ul_width_gross.to_f,
+      
         badge: 'B'
       }
     end
@@ -205,7 +227,7 @@ end
   # Width policy (section-aware)
   width_for = lambda do |art, section|
     special = section && dt1_special_width.call(art, section)
-    return special[:width] if special
+    return special[:width] if special && special[:badge] == 'M'
 
     level_00_rule.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
   end
@@ -221,11 +243,14 @@ end
     special&.dig(:badge)
   end
 
+  height_for = ->(art) { art.effective_height.to_f }
+
   base_section_planner(
     plan_strategy: plan_strategy,
     can_go_on_level_00: level_00_rule,
     width_for: width_for,
     length_for: length_for,
+    height_for: height_for,
     badge_for: badge_for
   )
 end
@@ -251,14 +276,11 @@ def plan_opul(plan_strategy:)
 
   # DT=1 M/B logic (150% gate enforced)
   dt1_special_width = lambda do |art, section|
-    return nil unless art.dt == 1
-    return nil unless art.rssq.to_f > art.palq.to_f * 1.50
-
-    {
-      width: art.ul_width_gross.to_f * 2,
-      badge: art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? 'M' : 'B'
-    }
-  end
+  {
+    width: art.ul_width_gross.to_f * 2,
+    badge: art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? 'M' : 'B'
+  }
+end
 
   # Width policy
   width_for = lambda do |art, section|
@@ -318,11 +340,14 @@ def plan_opul(plan_strategy:)
     non_opul_articles + sorted_opul
   end
 
+  height_for = ->(art) { art.effective_height.to_f }
+
   base_section_planner(
     plan_strategy: plan_strategy,
     can_go_on_level_00: can_go_on_level_00,
     width_for: width_for,
     length_for: length_for,
+     height_for: height_for,
     badge_for: badge_for
   )
 end
@@ -331,7 +356,56 @@ end
 
 
 
-  def plan_countertop; base_section_planner(plan_strategy: :countertop); end
+ def plan_countertop(plan_strategy:)
+  # ============================
+  # COUNTERTOP RULES
+  # ============================
+
+  # Level 00 enforcement
+  can_go_on_level_00 = lambda do |art|
+    art.dt == 1 || art.weight_g.to_f > 27_215.5
+  end
+
+  # Width policy
+  width_for = lambda do |art, _section|
+    if art.dt == 1
+      art.ul_width_gross.to_f
+    else
+      art.cp_width.to_f
+    end
+  end
+
+  # Length policy
+  length_for = lambda do |art|
+    if art.dt == 1
+      art.ul_length_gross.to_f
+    else
+      art.cp_length.to_f
+    end
+  end
+
+  # Height policy
+  height_for = lambda do |art|
+    if art.dt == 1
+      art.ul_height_gross.to_f
+    else
+      art.cp_height.to_f
+    end
+  end
+
+  # No badges for countertop
+  badge_for = ->(_art, _section) { nil }
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    height_for: height_for,
+    badge_for: badge_for
+  )
+end
+
 
  def plan_voss(plan_strategy:)
   # VOSS rules: CP-only, never level 00, no badges
@@ -348,11 +422,14 @@ end
 
   badge_for = ->(_art, _section) { nil }
 
+  height_for = ->(art) { art.effective_height.to_f }
+
   base_section_planner(
       plan_strategy: plan_strategy,
       can_go_on_level_00: can_go_on_level_00,
       width_for: width_for,
       length_for: length_for, 
+      height_for: height_for,
       badge_for: badge_for
     )
   end
@@ -377,6 +454,7 @@ end
     can_go_on_level_00: can_go_on_level_00,
     width_for: width_for,
     length_for: length_for,
+    height_for: height_for,
     badge_for: badge_for
   )
 end

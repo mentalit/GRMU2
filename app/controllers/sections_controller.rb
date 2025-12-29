@@ -67,28 +67,30 @@ class SectionsController < ApplicationController
 
   def bulk_unassign
   aisle = Aisle.find(params[:id])
-    section_ids = aisle.sections.pluck(:id)
+  section_ids = aisle.sections.pluck(:id)
 
-    ActiveRecord::Base.transaction do
-      # 1. FULLY unassign ALL articles in this aisle
-      Article.where(section_id: section_ids).update_all(
-        section_id: nil,
-        level_id: nil,
-        planned: false
-      )
+  ActiveRecord::Base.transaction do
+    Article.where(section_id: section_ids).update_all(
+      section_id: nil,
+      level_id: nil,
+      planned: false
+    )
 
-      # 2. Destroy ALL levels except level 00
-      Level.where(section_id: section_ids)
-           .where.not(level_num: "00")
-           .find_each(&:destroy)
-    end
+    Level.where(section_id: section_ids)
+         .where.not(level_num: "00")
+         .find_each(&:destroy)
 
-    redirect_to aisle_sections_path(aisle),
-      notice: "All articles unassigned and all non-00 levels destroyed for Aisle #{aisle.aisle_num}."
-  rescue => e
-    redirect_to aisle_sections_path(aisle),
-      alert: "Bulk unassign failed: #{e.message}"
+    # If height is NOT NULL in DB, use 0
+    Level.where(section_id: section_ids, level_num: "00")
+         .update_all(level_height: 0)
   end
+
+  redirect_to aisle_sections_path(aisle), notice: "Bulk unassign complete for Aisle #{aisle.aisle_num}."
+rescue => e
+  redirect_to aisle_sections_path(aisle), alert: "Bulk unassign failed: #{e.message}"
+end
+
+
 
 
   # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)

@@ -206,19 +206,17 @@
                   <td align="center"><%= art.dt %></td>
                   <td align="right"><%= art.weight_g %></td>
 
-                  <td align="right">
-                    <% if art.plan_badge&.include?('M') && qualifies_for_mb %>
-                      <%= (art.ul_width_gross.to_f * 2).round(1) %>
-                    <% elsif art.plan_badge&.include?('B') && qualifies_for_mb %>
-                      <%= (art.ul_width_gross.to_f * 2).round(1) %>
-                    <% elsif art.plan_badge&.include?('O') %>
-                      <%= art.ul_width_gross %>
-                    <% elsif art.level.level_num == "00" %>
-                      <%= art.ul_width_gross %>
-                    <% else %>
-                      <%= art.cp_width %>
-                    <% end %>
-                  </td>
+                 <td align="right">
+                  <% if art.plan_badge&.include?('M') && qualifies_for_mb %>
+                    <%= (art.ul_width_gross.to_f * 2).round(1) %>
+                  <% elsif art.plan_badge&.include?('O') %>
+                    <%= art.ul_width_gross %>
+                  <% elsif art.level.level_num == "00" %>
+                    <%= art.ul_width_gross %>
+                  <% else %>
+                    <%= art.cp_width %>
+                  <% end %>
+                </td>
 
                   <td align="right"><%= art.effective_height.round(2) %></td>
                   <td><%= art.pa %></td>
@@ -228,7 +226,7 @@
                   <td align="center">
                     <% if art.plan_badge.present? %>
                       <% art.plan_badge.each_char do |badge| %>
-                        <% next if ['M','B'].include?(badge) && !qualifies_for_mb %>
+                        <% next if ['M','B'].include?(badge) && !qualifies_for_mb && badge != 'O' %>
                         <span
                           style="
                             padding:2px 6px;
