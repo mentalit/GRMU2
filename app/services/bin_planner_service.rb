@@ -434,7 +434,7 @@ end
     val = @params[:filter_value].presence
     return scope unless val
     case @params[:filter_type]
-    when 'PA' then scope.where(pa: val)
+    when 'PA' then scope.where(pa: val) 
     when 'HFB' then scope.where(hfb: val)
     else scope
     end
