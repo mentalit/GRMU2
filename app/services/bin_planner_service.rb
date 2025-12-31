@@ -309,36 +309,51 @@ end
   )
 end
 
- def plan_countertop(plan_strategy:)
+def plan_countertop(plan_strategy:)
+  heavy_weight = 27_215.5
+  mid_weight   = 22_679.6
+  max_mid_level_height = 1000.0
+
+  # RULE 1:
+  # Heavy items MUST go on level 00
   can_go_on_level_00 = lambda do |art|
-    art.dt == 1 || art.weight_g.to_f > 27_215.5
+    art.weight_g.to_f > heavy_weight ||
+      art.dt == 1 ||
+      art.weight_g.to_f > heavy_weight
   end
 
   width_for = lambda do |art, _section|
-    if art.dt == 1
-      art.ul_width_gross.to_f
-    else
-      art.cp_width.to_f
-    end
+    art.dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f
   end
 
   length_for = lambda do |art|
-    if art.dt == 1
-      art.ul_length_gross.to_f
-    else
-      art.cp_length.to_f
-    end
+    art.dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f
   end
 
   height_for = lambda do |art|
-    if art.dt == 1
-      art.ul_height_gross.to_f
-    else
-      art.cp_height.to_f
-    end
+    art.dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f
   end
 
-  badge_for = ->(_art, _section) { nil }
+  # RULE 2:
+  # Enforce "mid-weight only on levels < 1000mm"
+  #
+  # We do this by dynamically rejecting placement using a badge
+  # and checking it during planning (badge presence affects height logic)
+  badge_for = lambda do |art, section|
+    weight = art.weight_g.to_f
+
+    if weight > heavy_weight
+      # Heavy items are implicitly level 00 only
+      nil
+    elsif weight >= mid_weight
+      # Mid-weight: only allowed on short levels
+      level = section&.levels&.find_by(level_num: art.level&.level_num)
+
+      if level && level.level_height.to_f >= max_mid_level_height
+        :reject
+      end
+    end
+  end
 
   base_section_planner(
     plan_strategy: plan_strategy,
