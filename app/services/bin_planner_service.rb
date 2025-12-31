@@ -310,8 +310,8 @@ end
 end
 
 def plan_countertop(plan_strategy:)
-  heavy_weight = 27_215.5
-  mid_weight   = 22_679.6
+  heavy_weight = 29_483.5
+  mid_weight   = 30_683
   max_mid_level_height = 1000.0
 
   # RULE 1:
