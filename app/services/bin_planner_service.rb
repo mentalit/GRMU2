@@ -82,15 +82,15 @@ class BinPlannerService
     end
 
   sorted_00.each do |art|
-  w = effective_width_for.call(art, nil).to_f
-  next if w <= 0
+    w = effective_width_for.call(art, nil).to_f
+    next if w <= 0
 
-  bin = section_bins.find { |b| b[:remaining_w] >= w }
-  next unless bin
+    bin = section_bins.find { |b| b[:remaining_w] >= w }
+    next unless bin
 
-  bin[:items] << art
-  bin[:remaining_w] -= w
-end
+    bin[:items] << art
+    bin[:remaining_w] -= w
+  end
 
   # Persist level 00
   section_bins.each do |bin|
@@ -121,7 +121,6 @@ end
       planned_count += 1
     end
 
-    # finalize level height
     current = Article.where(level_id: level.id, planned: true)
     new_h   = current.map { |a| height_for.call(a) }.max.to_f
     clr     = current.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
@@ -129,7 +128,7 @@ end
   end
 
   # ------------------------------------------------------------
-  # PHASE 2 — LEVELS 01+ (UNCHANGED LOGIC)
+  # PHASE 2 — LEVELS 01+ (NOW GLOBAL & GREEDY)
   # ------------------------------------------------------------
   section_height_map = sections.each_with_object({}) do |s, h|
     l00_h   = s.levels.find_by(level_num: "00")&.level_height.to_f
@@ -141,12 +140,11 @@ end
     break if queue.empty?
     level_str = format("%02d", level_idx)
 
-    sections.each do |section|
-      break if queue.empty?
+    eligible = queue.reject { |a| can_go_on_level_00.call(a) }
+    next if eligible.empty?
 
-      eligible = queue.reject { |a| can_go_on_level_00.call(a) }
-      next if eligible.empty?
-
+    # Build global bins for this level
+    bins = sections.map do |section|
       existing_level = section.levels.find_by(level_num: level_str)
 
       if existing_level
@@ -158,29 +156,47 @@ end
         remaining_w = section.section_width.to_f
       end
 
-      planned_this_run = []
-      cursor = remaining_w
+      {
+        section: section,
+        level: existing_level,
+        remaining_w: remaining_w,
+        items: []
+      }
+    end.compact
 
-      eligible.sort_by { |a| -effective_width_for.call(a, section).to_f }.each do |art|
-        w = effective_width_for.call(art, section).to_f
-        next if w <= 0 || w > cursor
-        next if art.article_length.to_f > section.section_depth.to_f
+    # Global greedy placement
+    eligible
+      .sort_by { |a| -effective_width_for.call(a, nil).to_f }
+      .each do |art|
 
-        planned_this_run << art
-        cursor -= w
+        w = effective_width_for.call(art, nil).to_f
+        next if w <= 0
+
+        bin = bins.find do |b|
+          w <= b[:remaining_w] &&
+            art.article_length.to_f <= b[:section].section_depth.to_f
+        end
+
+        next unless bin
+
+        bin[:items] << art
+        bin[:remaining_w] -= w
       end
 
-      next if planned_this_run.empty?
+    # Persist
+    bins.each do |bin|
+      next if bin[:items].empty?
 
-      target_level = existing_level || section.levels.create!(level_num: level_str, level_height: 0)
+      section = bin[:section]
+      level   = bin[:level] || section.levels.create!(level_num: level_str, level_height: 0)
 
-      planned_this_run.each do |art|
+      bin[:items].each do |art|
         badge = badge_for.call(art, section)
 
         art.update!(
           new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
           section_id: section.id,
-          level_id: target_level.id,
+          level_id: level.id,
           planned: true,
           plan_badge: badge
         )
@@ -189,13 +205,13 @@ end
         planned_count += 1
       end
 
-      current = Article.where(level_id: target_level.id, planned: true)
+      current = Article.where(level_id: level.id, planned: true)
       new_h   = current.map { |a| height_for.call(a) }.max.to_f
       clr     = current.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
-      diff    = (new_h + clr) - target_level.level_height
+      diff    = (new_h + clr) - level.level_height
 
       if diff > 0
-        target_level.update!(level_height: new_h + clr)
+        level.update!(level_height: new_h + clr)
         section_height_map[section.id] -= diff
       end
     end
@@ -203,6 +219,7 @@ end
 
   { success: true, planned_count: planned_count, unplanned_count: queue.size }
 end
+
 
 
 
