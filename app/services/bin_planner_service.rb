@@ -46,7 +46,7 @@ class BinPlannerService
       "count=#{ws.length} min=#{min.round(1)} median=#{mid.round(1)} max=#{max.round(1)} top10=[#{top}]"
     end
 
-  def base_section_planner(plan_strategy:, can_go_on_level_00:, width_for:, length_for:, height_for:, badge_for:)
+ def base_section_planner(plan_strategy:, can_go_on_level_00:, width_for:, length_for:, height_for:, badge_for:)
   # 🔧 SINGLE SOURCE OF TRUTH: width logic
   effective_width_for = lambda do |art, section|
     base_w = width_for.call(art, section)
@@ -69,12 +69,23 @@ class BinPlannerService
   level_00_candidates = queue.select { |a| can_go_on_level_00.call(a) }
 
   section_bins = sections.map do |s|
-    {
-      section: s,
-      remaining_w: s.section_width.to_f,
-      items: []
-    }
-  end
+  level_00 = s.levels.find_by(level_num: "00")
+
+  used_w =
+    if level_00
+      Article.where(level_id: level_00.id, planned: true)
+             .sum { |a| effective_width_for.call(a, s) }
+    else
+      0.0
+    end
+
+  {
+    section: s,
+    remaining_w: s.section_width.to_f - used_w,
+    items: []
+  }
+end
+
 
   sorted_00 =
     level_00_candidates.sort_by do |a|
@@ -85,21 +96,24 @@ class BinPlannerService
     w = effective_width_for.call(art, nil).to_f
     next if w <= 0
 
-    bin = section_bins.find { |b| b[:remaining_w] >= w }
+    bin = section_bins.find do |b|
+  b[:remaining_w] >= w &&
+    art.article_length.to_f <= b[:section].section_depth.to_f
+end
+
     next unless bin
 
     bin[:items] << art
     bin[:remaining_w] -= w
   end
 
-  # Persist level 00
+  # Persist level 00  ✅ FIXED
   section_bins.each do |bin|
     next if bin[:items].empty?
 
     section = bin[:section]
     level   = section.levels.find_or_create_by!(
-      level_num: "00",
-      level_height: 0
+      level_num: "00"
     )
 
     bin[:items].each do |art|
@@ -143,7 +157,6 @@ class BinPlannerService
     eligible = queue.reject { |a| can_go_on_level_00.call(a) }
     next if eligible.empty?
 
-    # Build global bins for this level
     bins = sections.map do |section|
       existing_level = section.levels.find_by(level_num: level_str)
 
@@ -164,7 +177,6 @@ class BinPlannerService
       }
     end.compact
 
-    # Global greedy placement
     eligible
       .sort_by { |a| -effective_width_for.call(a, nil).to_f }
       .each do |art|
@@ -183,7 +195,6 @@ class BinPlannerService
         bin[:remaining_w] -= w
       end
 
-    # Persist
     bins.each do |bin|
       next if bin[:items].empty?
 
@@ -224,6 +235,51 @@ end
 
 
   # --- Strategy Definitions ---
+
+  def plan_countertop(plan_strategy:)
+  heavy_weight = 27_215.5
+  max_non_l00_level_height = 1092.2
+
+  can_go_on_level_00 = lambda do |art|
+    art.dt == 1 || art.weight_g.to_f > heavy_weight
+  end
+
+  width_for = lambda do |art, _section|
+    art.dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f
+  end
+
+  length_for = lambda do |art|
+    art.dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f
+  end
+
+  height_for = lambda do |art|
+    art.dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f
+  end
+
+  badge_for = ->(_art, _section) { nil }
+
+  define_singleton_method(:base_articles_scope) do
+    scope = super()
+
+    scope.select do |art|
+      if can_go_on_level_00.call(art)
+        true
+      else
+        height_for.call(art) < max_non_l00_level_height
+      end
+    end
+  end
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    height_for: height_for,
+    badge_for: badge_for
+  )
+end
+
 
   def plan_opul(plan_strategy:)
     opul_tags = ["RTS SS FS Modul", "RTS MH Module"]
