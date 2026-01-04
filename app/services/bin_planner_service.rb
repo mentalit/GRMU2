@@ -281,6 +281,34 @@ end
 end
 
 
+def plan_voss(plan_strategy:)
+  # VOSS rules: CP-only, never level 00, no badges, DT == 0 ONLY
+
+  can_go_on_level_00 = ->(_art) { false }
+
+  width_for  = ->(art, _section) { art.cp_width.to_f }
+  length_for = ->(art) { art.cp_length.to_f }
+  height_for = ->(art) { art.cp_height.to_f }
+  badge_for  = ->(_art, _section) { nil }
+
+  # 🔒 HARD ENFORCEMENT: DT == 0 ONLY (VOSS)
+  define_singleton_method(:base_articles_scope) do
+    super().where(dt: 0)
+  end
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    height_for: height_for,
+    badge_for: badge_for
+  )
+end
+
+
+
+
   def plan_opul(plan_strategy:)
     opul_tags = ["RTS SS FS Modul", "RTS MH Module"]
     is_opul = ->(a) { opul_tags.include?(a.sal_sol_indic) }
@@ -393,9 +421,19 @@ end
   end
 
   def apply_voss_gates(scope)
-    scope.where(dt: 0).where("cp_height <= ? AND cp_length <= ? AND cp_width <= ?", 
-      @params[:voss_cp_height_max], @params[:voss_cp_length_max], @params[:voss_cp_width_max])
-  end
+  scope = scope.where(dt: 0)
+
+  scope = scope.where("cp_height <= ?", @params[:voss_cp_height_max]) if @params[:voss_cp_height_max].present?
+  scope = scope.where("cp_length <= ?", @params[:voss_cp_length_max]) if @params[:voss_cp_length_max].present?
+  scope = scope.where("cp_width  <= ?", @params[:voss_cp_width_max])  if @params[:voss_cp_width_max].present?
+
+  scope = scope.where("split_rssq <= ?", @params[:voss_rssq_max])     if @params[:voss_rssq_max].present?
+  scope = scope.where("expsale    <= ?", @params[:voss_expsale_max])  if @params[:voss_expsale_max].present?
+  scope = scope.where("weight_g   <= ?", @params[:voss_weight_g_max]) if @params[:voss_weight_g_max].present?
+
+  scope
+end
+
 
   def apply_pallet_gates(scope)
     scope.where(dt: 1).where("ul_height_gross <= ? AND ul_length_gross <= ? AND ul_width_gross <= ?", 
