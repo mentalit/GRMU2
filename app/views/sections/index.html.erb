@@ -202,7 +202,7 @@
 
             <tbody>
               <% articles.each do |art| %>
-                <% qualifies_for_mb = art.rssq.to_f > art.palq.to_f * 1.50 %>
+                <% qualifies_for_mb = art.split_rssq.to_f > art.palq.to_f * 1.50 %>
 
                 <tr style="border-top:1px solid #ddd">
                   <td><%= link_to art.artno, art %></td>
@@ -224,7 +224,7 @@
 
                   <td align="right"><%= art.effective_height.round(2) %></td>
                   <td><%= art.pa %></td>
-                  <td><%= art.rssq %></td>
+                  <td><%= art.split_rssq %></td>
                   <td><%= art.palq %></td>
 
                   <td align="center">

@@ -23,6 +23,10 @@ class BinPlannerService
 
   private
 
+  def planned_assq_for(art)
+    art.split_rssq.to_f
+  end
+
   # --- Core Planning Engine ---
 
   def planner_debug?
@@ -55,7 +59,7 @@ class BinPlannerService
     badge = badge_for.call(art, section)
     return base_w unless badge&.include?("M")
 
-    mult = art.rssq.to_f / art.palq.to_f
+    mult = art.split_rssq.to_f / art.palq.to_f
     base_w * (mult > 0 ? mult : 1.0)
   end
 
@@ -124,12 +128,13 @@ end
       end
 
       art.update!(
-        new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
+        new_assq: planned_assq_for(art),
         section_id: section.id,
         level_id: level.id,
         planned: true,
         plan_badge: badge
       )
+
 
       queue.delete(art)
       planned_count += 1
@@ -205,12 +210,13 @@ end
         badge = badge_for.call(art, section)
 
         art.update!(
-          new_assq: (art.dt == 0 && art.mpq.to_i == 1 ? art.split_rssq : art.new_assq),
+          new_assq: planned_assq_for(art),
           section_id: section.id,
           level_id: level.id,
           planned: true,
           plan_badge: badge
         )
+
 
         queue.delete(art)
         planned_count += 1
@@ -354,14 +360,14 @@ end
     end
 
     width_for = lambda do |art, section|
-      if section && art.dt == 1 && art.rssq.to_f > art.palq.to_f && (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+      if section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f && (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
         return art.ul_width_gross.to_f # Multiplier applied in effective_width_for via 'M' badge
       end
       can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
     end
 
     badge_for = lambda do |art, section|
-      return nil unless section && art.dt == 1 && art.rssq.to_f > art.palq.to_f
+      return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
       art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
     end
 
