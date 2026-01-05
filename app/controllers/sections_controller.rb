@@ -1,10 +1,13 @@
 class SectionsController < ApplicationController
+
+  require "csv" 
   before_action :set_section, only: %i[ show edit update destroy ]
-  before_action :get_aisle, only: %i[ new create index plan]
+  before_action :get_aisle, only: %i[ new create index plan export_csv]
 
   # GET /sections or /sections.json
   def index
-    @sections = @aisle.sections
+    @sections = @aisle.sections.includes(levels: :articles)
+
   end
 
   # GET /sections/1 or /sections/1.json
@@ -19,6 +22,53 @@ class SectionsController < ApplicationController
   # GET /sections/1/edit
   def edit
   end
+
+ def export_csv
+  sections = @aisle.sections.includes(levels: :articles)
+
+  csv_data = CSV.generate(headers: true) do |csv|
+    csv << [
+      "aisle_num",
+      "section_num",
+      "level_num",
+      "artno",
+      "artname_unicode",
+      "slid_h",
+      "new_loc",
+      "badge",
+      
+    ]
+
+    sections.each do |section|
+      aisle_num   = section.aisle.aisle_num
+      section_num = section.section_num
+
+      section.levels.each do |level|
+        level_num = level.level_num
+
+        level.articles.each do |article|
+          csv << [
+            aisle_num,
+            section_num,
+            level_num,
+            article.artno,
+            article.artname_unicode,
+            article.slid_h,
+            "#{aisle_num},#{section_num},#{level_num}",
+            article.plan_badges_csv
+          ]
+        end
+      end
+    end
+  end
+
+  send_data csv_data,
+            filename: "aisle_#{@aisle.aisle_num}_articles.csv",
+            type: "text/csv"
+end
+
+
+
 
   def plan
     # The @aisle object is already available via the before_action :get_aisle

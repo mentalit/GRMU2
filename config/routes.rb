@@ -26,6 +26,9 @@ Rails.application.routes.draw do
           collection do
             post :plan  
           end
+          collection do
+            get :export_csv
+          end
           resources :levels
         end
       end
