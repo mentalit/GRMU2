@@ -63,6 +63,12 @@ class BinPlannerService
     base_w * (mult > 0 ? mult : 1.0)
   end
 
+  can_fit_in_section = lambda do |art, section|
+  w = effective_width_for.call(art, section)
+  w > 0 && w <= section.section_width.to_f
+end
+
+
   queue    = prepare_article_queue(width_for, length_for)
   sections = @aisle.sections.order(:section_num).to_a
   planned_count = 0
@@ -97,19 +103,22 @@ end
     end
 
   sorted_00.each do |art|
-    w = effective_width_for.call(art, nil).to_f
-    next if w <= 0
+  next if effective_width_for.call(art, nil).to_f <= 0
 
-    bin = section_bins.find do |b|
-  b[:remaining_w] >= w &&
-    art.article_length.to_f <= b[:section].section_depth.to_f
+  bin = section_bins.find do |b|
+    w_s = effective_width_for.call(art, b[:section]).to_f
+    w_s > 0 &&
+      w_s <= b[:remaining_w] &&
+      art.article_length.to_f <= b[:section].section_depth.to_f
+  end
+
+  next unless bin
+
+  w_s = effective_width_for.call(art, bin[:section]).to_f
+  bin[:items] << art
+  bin[:remaining_w] -= w_s
 end
 
-    next unless bin
-
-    bin[:items] << art
-    bin[:remaining_w] -= w
-  end
 
   # Persist level 00  ✅ FIXED
   section_bins.each do |bin|
@@ -183,22 +192,25 @@ end
     end.compact
 
     eligible
-      .sort_by { |a| -effective_width_for.call(a, nil).to_f }
-      .each do |art|
+  .sort_by { |a| -effective_width_for.call(a, nil).to_f } # sorting can stay approximate
+  .each do |art|
 
-        w = effective_width_for.call(art, nil).to_f
-        next if w <= 0
+    next if effective_width_for.call(art, nil).to_f <= 0
 
-        bin = bins.find do |b|
-          w <= b[:remaining_w] &&
-            art.article_length.to_f <= b[:section].section_depth.to_f
-        end
+    bin = bins.find do |b|
+      w_s = effective_width_for.call(art, b[:section]).to_f
+      w_s > 0 &&
+        w_s <= b[:remaining_w] &&
+        art.article_length.to_f <= b[:section].section_depth.to_f
+    end
 
-        next unless bin
+    next unless bin
 
-        bin[:items] << art
-        bin[:remaining_w] -= w
-      end
+    w_s = effective_width_for.call(art, bin[:section]).to_f
+    bin[:items] << art
+    bin[:remaining_w] -= w_s
+  end
+
 
     bins.each do |bin|
       next if bin[:items].empty?
@@ -241,6 +253,35 @@ end
 
 
   # --- Strategy Definitions ---
+
+  def plan_pallet(plan_strategy:)
+    can_go_00 = lambda do |a|
+      a.dt == 1 || (a.dt == 0 && (a.weight_g.to_f > 18_143.7 || a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
+    end
+
+    width_for = lambda do |art, section|
+      if section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f && (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+        return art.ul_width_gross.to_f # Multiplier applied in effective_width_for via 'M' badge
+      end
+      can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+    end
+
+    badge_for = lambda do |art, section|
+      return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
+      art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+    end
+
+    base_section_planner(
+      plan_strategy: plan_strategy,
+      can_go_on_level_00: can_go_00,
+      width_for: width_for,
+      length_for: ->(a) { can_go_00.call(a) ? a.ul_length_gross.to_f : a.cp_length.to_f },
+      height_for: ->(a) { a.effective_height.to_f },
+      badge_for: badge_for
+    )
+  end
+
+
 
   def plan_countertop(plan_strategy:)
   heavy_weight = 27_215.5
@@ -325,24 +366,20 @@ end
     end
 
     width_for = lambda do |art, section|
-      return art.ul_width_gross.to_f if is_opul.call(art) # Always Gross for OPUL
-      
-      # Handle Multiplier Badge 'M' for DT1
-      if section && art.dt == 1 && (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
-        return art.ul_width_gross.to_f * 2
+      if section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f && (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+        return art.ul_width_gross.to_f # Multiplier applied in effective_width_for via 'M' badge
       end
-
       can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
     end
 
     badge_for = lambda do |art, section|
-      b = []
-      b << "O" if is_opul.call(art)
-      if section && art.dt == 1
-         b << (art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B")
-      end
-      b.join.presence
-    end
+  return "O" if is_opul.call(art)
+
+  return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
+
+  art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+end
+
 
     base_section_planner(
       plan_strategy: plan_strategy,
