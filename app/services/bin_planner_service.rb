@@ -23,6 +23,36 @@ class BinPlannerService
 
   private
 
+
+  def total_planned_qty_for(art)
+  Article
+    .where(id: art.id)
+    .pluck(:new_assq)
+    .map { |v| v.to_f }
+    .sum
+end
+
+
+
+ def apply_planned_state!(art)
+  total_planned = total_planned_qty_for(art)
+  total_required = art.rssq.to_f
+
+  if total_planned >= total_required
+    art.update!(
+      planned: true,
+      part_planned: false,
+      planned_quantity_remainder: nil
+    )
+  else
+    art.update!(
+      planned: false,
+      part_planned: true,
+      planned_quantity_remainder: total_required - total_planned
+    )
+  end
+end
+
   def planned_assq_for(art)
     art.split_rssq.to_f
   end
@@ -140,9 +170,10 @@ end
         new_assq: planned_assq_for(art),
         section_id: section.id,
         level_id: level.id,
-        planned: true,
         plan_badge: badge
       )
+
+      apply_planned_state!(art)
 
 
       queue.delete(art)
@@ -225,10 +256,10 @@ end
           new_assq: planned_assq_for(art),
           section_id: section.id,
           level_id: level.id,
-          planned: true,
           plan_badge: badge
         )
 
+        apply_planned_state!(art)
 
         queue.delete(art)
         planned_count += 1

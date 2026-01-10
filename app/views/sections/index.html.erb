@@ -179,8 +179,8 @@
           </span>
         </h4>
 
-        <% articles = section.articles.where(level_id: level.id, planned: true) %>
-
+        <% articles = section.articles.where(level_id: level.id)
+                               .where("planned = ? OR part_planned = ?", true, true) %>
         <% if articles.any? %>
           <table style="width:100%; border-collapse:collapse;">
             <thead>
