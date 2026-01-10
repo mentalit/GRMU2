@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_12_26_022737) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_05_192742) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -31,7 +31,7 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_26_022737) do
     t.string "artname_unicode"
     t.integer "baseonhand"
     t.integer "weight_g"
-    t.string "slid_h"
+    t.string "slid_h" 
     t.string "ssd"
     t.string "eds"
     t.string "hfb"
@@ -62,6 +62,8 @@ ActiveRecord::Schema[7.1].define(version: 2025_12_26_022737) do
     t.bigint "section_id"
     t.string "plan_badge"
     t.bigint "level_id"
+    t.boolean "part_planned", default: false, null: false
+    t.integer "planned_quantity_remainder"
     t.index ["level_id"], name: "index_articles_on_level_id"
     t.index ["section_id"], name: "index_articles_on_section_id"
     t.index ["store_id"], name: "index_articles_on_store_id"

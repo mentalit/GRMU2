@@ -157,6 +157,16 @@
   </div>
 
   <div>
+    <%= form.label :planned_quantity_remainder, style: "display: block" %>
+    <%= form.number_field :planned_quantity_remainder %>
+  </div>
+
+  <div class="field">
+    <%= form.label :part_planned %>
+    <%= form.check_box :part_planned %>
+  </div>
+
+  <div>
     <%= form.label :store_id, style: "display: block" %>
     <%= form.text_field :store_id %>
   </div>
@@ -165,3 +175,4 @@
     <%= form.submit %>
   </div>
 <% end %>
+

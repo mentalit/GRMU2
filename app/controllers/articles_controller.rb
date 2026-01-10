@@ -148,6 +148,6 @@ end
 
     # Only allow a list of trusted parameters through.
     def article_params
-      params.require(:article).permit(:artno, :artname_unicode, :baseonhand, :weight_g, :slid_h, :ssd, :eds, :hfb, :expsale, :pa, :salesmethod, :rssq, :sal_sol_indic, :mpq, :palq, :dt, :cp_height, :cp_length, :cp_width, :cp_diameter, :cp_weight_gross, :ul_height_gross, :ul_length_gross, :ul_width_gross, :ul_diamter, :new_assq, :new_loc, :split_rssq, :store_id, :level_id)
+      params.require(:article).permit(:artno, :artname_unicode, :baseonhand, :weight_g, :slid_h, :ssd, :eds, :hfb, :expsale, :pa, :salesmethod, :rssq, :sal_sol_indic, :mpq, :palq, :dt, :cp_height, :cp_length, :cp_width, :cp_diameter, :cp_weight_gross, :ul_height_gross, :ul_length_gross, :ul_width_gross, :ul_diamter, :new_assq, :new_loc, :split_rssq, :part_planned, :planned_quantity_remainder, :store_id, :level_id)
     end
 end
