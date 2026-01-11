@@ -174,7 +174,7 @@ art.ul_width_gross.to_f * mult
     break if queue.empty?
 
     level_str = format("%02d", level_idx)
-    eligible = queue.reject { |a| can_go_on_level_00.call(a) }
+    eligible = queue
     next if eligible.empty?
 
     bins =
