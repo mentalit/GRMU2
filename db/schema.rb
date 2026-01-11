@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_05_192742) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_11_012718) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -31,7 +31,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_05_192742) do
     t.string "artname_unicode"
     t.integer "baseonhand"
     t.integer "weight_g"
-    t.string "slid_h" 
+    t.string "slid_h"
     t.string "ssd"
     t.string "eds"
     t.string "hfb"
@@ -90,6 +90,33 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_05_192742) do
     t.index ["store_id"], name: "index_pairs_on_store_id"
   end
 
+  create_table "placements", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.bigint "section_id"
+    t.bigint "level_id"
+    t.decimal "planned_qty", precision: 10, scale: 2, null: false
+    t.string "badge"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["article_id"], name: "index_placements_on_article_id"
+    t.index ["level_id"], name: "index_placements_on_level_id"
+    t.index ["section_id"], name: "index_placements_on_section_id"
+  end
+
+  create_table "planned_placements", force: :cascade do |t|
+    t.bigint "article_id", null: false
+    t.bigint "aisle_id", null: false
+    t.bigint "section_id", null: false
+    t.bigint "level_id", null: false
+    t.decimal "qty", precision: 10, scale: 2, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["aisle_id"], name: "index_planned_placements_on_aisle_id"
+    t.index ["article_id"], name: "index_planned_placements_on_article_id"
+    t.index ["level_id"], name: "index_planned_placements_on_level_id"
+    t.index ["section_id"], name: "index_planned_placements_on_section_id"
+  end
+
   create_table "sections", force: :cascade do |t|
     t.integer "section_num"
     t.float "section_depth"
@@ -114,5 +141,12 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_05_192742) do
   add_foreign_key "articles", "stores"
   add_foreign_key "levels", "sections"
   add_foreign_key "pairs", "stores"
+  add_foreign_key "placements", "articles"
+  add_foreign_key "placements", "levels"
+  add_foreign_key "placements", "sections"
+  add_foreign_key "planned_placements", "aisles"
+  add_foreign_key "planned_placements", "articles"
+  add_foreign_key "planned_placements", "levels"
+  add_foreign_key "planned_placements", "sections"
   add_foreign_key "sections", "aisles"
 end

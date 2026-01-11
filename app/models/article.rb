@@ -6,7 +6,7 @@ class Article < ApplicationRecord
   belongs_to :level, optional: true
 
   before_validation :set_split_rssq
-
+  has_many :placements, dependent: :destroy
 
   BADGE_LABELS = {
     "M" => "Multiple Locations",
@@ -55,6 +55,35 @@ class Article < ApplicationRecord
   def set_split_rssq
   self.split_rssq = rssq if split_rssq.nil?
 end
+
+def total_planned_qty
+    placements.sum(:planned_qty).to_f
+  end
+
+  def apply_planned_state!
+    total = total_planned_qty
+    required = rssq.to_f
+
+    if total >= required
+      update!(
+        planned: true,
+        part_planned: false,
+        planned_quantity_remainder: nil
+      )
+    elsif total > 0
+      update!(
+        planned: false,
+        part_planned: true,
+        planned_quantity_remainder: required - total
+      )
+    else
+      update!(
+        planned: false,
+        part_planned: false,
+        planned_quantity_remainder: required
+      )
+    end
+  end
 
 
  

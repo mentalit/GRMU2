@@ -105,7 +105,8 @@ end
     article = Article.find(params[:id])
     
     # Update the article to be unplanned and clear its section assignment
-    article.update!(section_id: nil, planned: false)
+    article.placements.destroy_all
+    article.apply_planned_state!
     
     # Redirect back to the sections index page for the current aisle
     redirect_to aisle_sections_path(article.section.aisle), notice: "Article #{article.artno} unassigned successfully."
@@ -120,11 +121,12 @@ end
   section_ids = aisle.sections.pluck(:id)
 
   ActiveRecord::Base.transaction do
-    Article.where(section_id: section_ids).update_all(
-      section_id: nil,
-      level_id: nil,
-      planned: false
-    )
+    Article.where(id: Placement.where(section_id: section_ids).select(:article_id))
+       .find_each do |article|
+  article.placements.destroy_all
+  article.apply_planned_state!
+end
+
 
     Level.where(section_id: section_ids)
          .where.not(level_num: "00")
