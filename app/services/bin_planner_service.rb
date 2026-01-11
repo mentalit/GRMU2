@@ -67,15 +67,13 @@ class BinPlannerService
     return 0.0 unless base_w.to_f > 0
 
     badge = badge_for.call(art, section)
-    return base_w unless badge&.include?("M")
+return base_w unless badge&.include?("M")
 
-    mult = art.split_rssq.to_f / art.palq.to_f
-    base_w * (mult > 0 ? mult : 1.0)
-  end
+mult = (art.split_rssq.to_f / art.palq.to_f).ceil
+return 0.0 if mult <= 0
 
-  can_fit_in_section = lambda do |art, section|
-    w = effective_width_for.call(art, section)
-    w > 0 && w <= section.section_width.to_f
+art.ul_width_gross.to_f * mult
+
   end
 
   queue = prepare_article_queue(width_for, length_for)
@@ -92,9 +90,7 @@ class BinPlannerService
 
     used_w =
       if level_00
-        Placement
-          .where(level_id: level_00.id)
-          .sum { |p| effective_width_for.call(p.article, s) }
+        Placement.where(level_id: level_00.id).sum(:width_used).to_f
       else
         0.0
       end
@@ -106,9 +102,7 @@ class BinPlannerService
     }
   end
 
-  sorted_00 = level_00_candidates.sort_by do |a|
-    -effective_width_for.call(a, nil).to_f
-  end
+  sorted_00 = level_00_candidates.sort_by { |a| -effective_width_for.call(a, nil).to_f }
 
   sorted_00.each do |art|
     next if effective_width_for.call(art, nil).to_f <= 0
@@ -119,7 +113,6 @@ class BinPlannerService
         w_s <= b[:remaining_w] &&
         art.article_length.to_f <= b[:section].section_depth.to_f
     end
-
     next unless bin
 
     w_s = effective_width_for.call(art, bin[:section]).to_f
@@ -141,14 +134,18 @@ class BinPlannerService
         raise "OPUL article placed on level 00!"
       end
 
+      width_used = effective_width_for.call(art, section).to_f
+
       Placement.create!(
         article: art,
         section: section,
         level: level,
         planned_qty: planned_assq_for(art),
-        badge: badge
+        badge: badge,
+        width_used: width_used
       )
 
+      # UI compatibility (unchanged behavior for display)
       art.update!(section_id: section.id, level_id: level.id)
 
       art.apply_planned_state!
@@ -156,13 +153,10 @@ class BinPlannerService
       planned_count += 1
     end
 
-    current_articles =
-      Placement.where(level_id: level.id).includes(:article).map(&:article)
+    current_articles = Placement.where(level_id: level.id).includes(:article).map(&:article)
 
     new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
-    clr =
-      current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
-
+    clr = current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
     level.update!(level_height: new_h + clr)
   end
 
@@ -188,11 +182,7 @@ class BinPlannerService
         existing_level = section.levels.find_by(level_num: level_str)
 
         if existing_level
-          used_w =
-            Placement
-              .where(level_id: existing_level.id)
-              .sum { |p| effective_width_for.call(p.article, section) }
-
+          used_w = Placement.where(level_id: existing_level.id).sum(:width_used).to_f
           remaining_w = section.section_width.to_f - used_w
         else
           next if section_height_map[section.id] <= 0
@@ -218,7 +208,6 @@ class BinPlannerService
             w_s <= b[:remaining_w] &&
             art.article_length.to_f <= b[:section].section_depth.to_f
         end
-
         next unless bin
 
         w_s = effective_width_for.call(art, bin[:section]).to_f
@@ -230,34 +219,32 @@ class BinPlannerService
       next if bin[:items].empty?
 
       section = bin[:section]
-      level =
-        bin[:level] ||
-          section.levels.create!(level_num: level_str, level_height: 0)
+      level = bin[:level] || section.levels.create!(level_num: level_str, level_height: 0)
 
       bin[:items].each do |art|
         badge = badge_for.call(art, section)
+        width_used = effective_width_for.call(art, section).to_f
 
         Placement.create!(
           article: art,
           section: section,
           level: level,
           planned_qty: planned_assq_for(art),
-          badge: badge
+          badge: badge,
+          width_used: width_used
         )
 
         art.update!(section_id: section.id, level_id: level.id)
-        
+
         art.apply_planned_state!
         queue.delete(art)
         planned_count += 1
       end
 
-      current_articles =
-        Placement.where(level_id: level.id).includes(:article).map(&:article)
+      current_articles = Placement.where(level_id: level.id).includes(:article).map(&:article)
 
       new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
-      clr =
-        current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
+      clr = current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
 
       diff = (new_h + clr) - level.level_height
       if diff > 0
@@ -267,12 +254,9 @@ class BinPlannerService
     end
   end
 
-  {
-    success: true,
-    planned_count: planned_count,
-    unplanned_count: queue.size
-  }
+  { success: true, planned_count: planned_count, unplanned_count: queue.size }
 end
+
 
 
 

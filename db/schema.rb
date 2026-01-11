@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_11_012718) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_11_173244) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -98,6 +98,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_11_012718) do
     t.string "badge"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "width_used", precision: 10, scale: 2, null: false
     t.index ["article_id"], name: "index_placements_on_article_id"
     t.index ["level_id"], name: "index_placements_on_level_id"
     t.index ["section_id"], name: "index_placements_on_section_id"
