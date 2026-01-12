@@ -36,23 +36,14 @@ class ArticlesController < ApplicationController
               notice: "Import started. This may take a few minutes."
 end
 
-
-
-
-
-
-
-
   def destroy_all
-    store_id = params[:store_id]
+  deleted = @store.articles.destroy_all.count
 
-    deleted = Article.unscoped.where(store_id: store_id).delete_all
+  Rails.logger.info "[ARTICLES] Destroyed #{deleted} articles for store #{@store.id}"
 
-    Rails.logger.info "[ARTICLES] Deleted #{deleted} articles for store #{store_id}"
-
-    redirect_to store_articles_path(store_id),
-                notice: "Deleted #{deleted} articles"
-  end
+  redirect_to store_articles_path(@store),
+              notice: "Deleted #{deleted} articles"
+end
  
  def planned_articles
   @articles = @store.articles 

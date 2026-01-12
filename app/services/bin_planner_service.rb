@@ -277,9 +277,13 @@ end
     end
 
     badge_for = lambda do |art, section|
-      return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
-      art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
-    end
+  return nil unless section &&
+                    art.dt == 1 &&
+                    art.split_rssq.to_f > art.palq.to_f * 1.5
+
+  art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+end
+
 
     base_section_planner(
       plan_strategy: plan_strategy,

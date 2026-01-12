@@ -8,6 +8,8 @@ class Article < ApplicationRecord
   before_validation :set_split_rssq
   has_many :placements, dependent: :destroy
 
+  has_many :placements, dependent: :destroy
+
   BADGE_LABELS = {
     "M" => "Multiple Locations",
     "B" => "Behind",
