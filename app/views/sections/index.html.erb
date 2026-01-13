@@ -202,7 +202,6 @@
 
             <tbody>
               <% articles.each do |art| %>
-              <% placement = Placement.find_by(article_id: art.id, level_id: level.id) %>
                 <% qualifies_for_mb = art.split_rssq.to_f > art.palq.to_f %>
 
                 <tr style="border-top:1px solid #ddd">
@@ -212,12 +211,12 @@
                   <td align="right"><%= art.weight_g %></td>
 
                  <td align="right">
-                  <% if placement.badge&.include?('M') && qualifies_for_mb %>
+                  <% if art.plan_badge&.include?('M') && qualifies_for_mb %>
   <%= (
       art.ul_width_gross.to_f *
       (art.split_rssq.to_f / art.palq.to_f).ceil
     ) %>
-                  <% elsif placement.badge&.include?('O') %>
+                  <% elsif art.plan_badge&.include?('O') %>
                     <%= art.ul_width_gross %>
                   <% elsif art.level.level_num == "00" %>
                     <%= art.ul_width_gross %>
@@ -232,9 +231,8 @@
                   <td><%= art.palq %></td>
 
                   <td align="center">
-                    <% placement = Placement.find_by(article_id: art.id, level_id: level.id) %>
-<% if placement&.badge.present? %>
-                      <% placement.badge.each_char do |badge| %>
+                    <% if art.plan_badge.present? %>
+                      <% art.plan_badge.each_char do |badge| %>
                         <% next if ['M','B'].include?(badge) && !qualifies_for_mb && badge != 'O' %>
                         <span
                           style="
