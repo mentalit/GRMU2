@@ -3,26 +3,46 @@ class Aisle < ApplicationRecord
   delegate :store, to: :pair
 
   has_many :sections, dependent: :destroy
+
+  # ⚠️ Structural relationship (articles exist in sections)
   has_many :articles, through: :sections
+
+  # ✅ Planning-aware relationships (THIS is what you want to count)
+  has_many :placements, through: :sections
+  has_many :planned_articles,
+           -> { distinct },
+           through: :placements,
+           source: :article
 
   after_create :create_sections
   after_update_commit :sync_sections, if: :sync_sections?
 
-   def add_sections(count)
-  Rails.logger.info "ADDING #{count} SECTIONS TO AISLE #{id}"
+  # ------------------------
+  # Public API
+  # ------------------------
 
-  next_section_num = sections.maximum(:section_num).to_i + 1
-
-  count.times do |i|
-    sections.create!(
-      section_num: next_section_num + i,
-      section_depth: aisle_depth,
-      section_height: aisle_height,
-      section_width: aisle_section_width
-    )
+  def planned_articles_count
+    planned_articles.count
   end
-end
 
+  def add_sections(count)
+    Rails.logger.info "ADDING #{count} SECTIONS TO AISLE #{id}"
+
+    next_section_num = sections.maximum(:section_num).to_i + 1
+
+    count.times do |i|
+      sections.create!(
+        section_num: next_section_num + i,
+        section_depth: aisle_depth,
+        section_height: aisle_height,
+        section_width: aisle_section_width
+      )
+    end
+  end
+
+  # ------------------------
+  # Callbacks
+  # ------------------------
   private
 
   def create_sections
@@ -50,6 +70,4 @@ end
       saved_change_to_aisle_height? ||
       saved_change_to_aisle_section_width?
   end
-
-
 end

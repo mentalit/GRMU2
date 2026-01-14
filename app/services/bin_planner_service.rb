@@ -174,7 +174,12 @@ art.ul_width_gross.to_f * mult
     break if queue.empty?
 
     level_str = format("%02d", level_idx)
-    eligible = queue
+    eligible =
+  if plan_strategy == :non_opul
+    queue.reject { |a| a.dt == 1 }
+  else
+    queue
+  end
     next if eligible.empty?
 
     bins =
@@ -279,7 +284,7 @@ end
     badge_for = lambda do |art, section|
   return nil unless section &&
                     art.dt == 1 &&
-                    art.split_rssq.to_f > art.palq.to_f * 1.5
+                    art.split_rssq.to_f > art.palq.to_f * 1.6
 
   art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
 end

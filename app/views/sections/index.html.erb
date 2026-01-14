@@ -54,93 +54,10 @@
       </label>
     </div>
   </fieldset>
-
-  <% is_voss   = params[:mode] == 'voss_mode' %>
-  <% is_pallet = params[:mode] == 'pallet_mode' %>
-
-  <fieldset id="voss-filters" style="display:<%= is_voss ? 'block' : 'none' %>;">
-    <legend>VOSS Gates (optional)</legend>
-    <div style="display:flex; gap:10px; flex-wrap:wrap">
-      <label>Max CP_HEIGHT (mm)
-        <%= number_field_tag :voss_cp_height_max, params[:voss_cp_height_max] || 508, step: 0.01 %>
-      </label>
-      <label>Max CP_LENGTH (mm)
-        <%= number_field_tag :voss_cp_length_max, params[:voss_cp_length_max] || 1016, step: 0.01 %>
-      </label>
-      <label>Max CP_WIDTH (mm)
-        <%= number_field_tag :voss_cp_width_max, params[:voss_cp_width_max] || 1016, step: 0.01 %>
-      </label>
-      <label>Max RSSQ
-        <%= number_field_tag :voss_rssq_max, params[:voss_rssq_max] || 10, step: 1 %>
-      </label>
-      <label>Max EXPSALE
-        <%= number_field_tag :voss_expsale_max, params[:voss_expsale_max] || 5.0, step: 0.01 %>
-      </label>
-      <label>Max WEIGHT_G (g)
-        <%= number_field_tag :voss_weight_g_max, params[:voss_weight_g_max] || 4536, step: 1 %>
-      </label>
-    </div>
-  </fieldset>
-
- <fieldset id="pallet-filters" style="display:<%= is_pallet ? 'block' : 'none' %>;">
-  <legend>PALLET Gates (optional)</legend>
-
-  <div style="display:flex; gap:10px; flex-wrap:wrap">
-    <label>Max UL_HEIGHT (mm)
-      <%= number_field_tag :voss_ul_height_max, params[:voss_ul_height_max], step: 0.01 %>
-    </label>
-
-    <label>Max UL_LENGTH (mm)
-      <%= number_field_tag :voss_ul_length_max, params[:voss_ul_length_max], step: 0.01 %>
-    </label>
-
-    <label>Max UL_WIDTH (mm)
-      <%= number_field_tag :voss_ul_width_max, params[:voss_ul_width_max], step: 0.01 %>
-    </label>
-
-    <label>Max RSSQ
-      <%= number_field_tag :voss_rssq_max, params[:voss_rssq_max] || 10, step: 1 %>
-    </label>
-
-    <label>Max EXPSALE
-      <%= number_field_tag :voss_expsale_max, params[:voss_expsale_max] || 5.0, step: 0.01 %>
-    </label>
-
-    <label>Max WEIGHT_G (g)
-      <%= number_field_tag :voss_weight_g_max, params[:voss_weight_g_max] || 4536, step: 1 %>
-    </label>
-  </div>
-</fieldset>
 </div>
 
 <%= submit_tag "Run Bin Planner" %>
 <% end %>
-
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const vossRadio   = document.getElementById("mode_voss");
-    const palletRadio = document.getElementById("mode_pallet");
-
-    const vossFilters   = document.getElementById("voss-filters");
-    const palletFilters = document.getElementById("pallet-filters");
-
-    const modeRadios = document.querySelectorAll("input[name='mode']");
-
-    function toggleFilters() {
-      if (vossFilters)
-        vossFilters.style.display = vossRadio?.checked ? "block" : "none";
-
-      if (palletFilters)
-        palletFilters.style.display = palletRadio?.checked ? "block" : "none";
-    }
-
-    modeRadios.forEach(radio => {
-      radio.addEventListener("change", toggleFilters);
-    });
-
-    toggleFilters();
-  });
-</script>
 
 <hr>
 
@@ -179,9 +96,11 @@
           </span>
         </h4>
 
-        <% articles = section.articles.where(level_id: level.id)
-                               .where("planned = ? OR part_planned = ?", true, true) %>
-        <% if articles.any? %>
+        <% placements = Placement
+             .includes(:article)
+             .where(section: section, level: level) %>
+
+        <% if placements.any? %>
           <table style="width:100%; border-collapse:collapse;">
             <thead>
               <tr style="background:#f4f4f4">
@@ -190,7 +109,8 @@
                 <th>DT</th>
                 <th>Weight</th>
                 <th>Width Used</th>
-                <th>Height</th>
+                
+                <th>Length</th>
                 <th>PA</th>
                 <th>RSSQ</th>
                 <th>PALQ</th>
@@ -201,7 +121,8 @@
             </thead>
 
             <tbody>
-              <% articles.each do |art| %>
+              <% placements.each do |placement| %>
+                <% art = placement.article %>
                 <% qualifies_for_mb = art.split_rssq.to_f > art.palq.to_f %>
 
                 <tr style="border-top:1px solid #ddd">
@@ -210,20 +131,20 @@
                   <td align="center"><%= art.dt %></td>
                   <td align="right"><%= art.weight_g %></td>
 
-                 <td align="right">
-                  <% if art.plan_badge&.include?('M') && qualifies_for_mb %>
-  <%= (
-      art.ul_width_gross.to_f *
-      (art.split_rssq.to_f / art.palq.to_f).ceil
-    ) %>
-                  <% elsif art.plan_badge&.include?('O') %>
-                    <%= art.ul_width_gross %>
-                  <% elsif art.level.level_num == "00" %>
-                    <%= art.ul_width_gross %>
-                  <% else %>
-                    <%= art.cp_width %>
-                  <% end %>
-                </td>
+                  <td align="right">
+                    <% if placement.badge&.include?('M') && qualifies_for_mb %>
+                      <%= (
+                          art.ul_width_gross.to_f *
+                          (art.split_rssq.to_f / art.palq.to_f).ceil
+                        ) %>
+                    <% elsif placement.badge&.include?('O') %>
+                      <%= art.ul_width_gross %>
+                    <% elsif art.level.level_num == "00" %>
+                      <%= art.ul_width_gross %>
+                    <% else %>
+                      <%= art.cp_width %>
+                    <% end %>
+                  </td>
 
                   <td align="right"><%= art.effective_height.round(2) %></td>
                   <td><%= art.pa %></td>
@@ -231,8 +152,8 @@
                   <td><%= art.palq %></td>
 
                   <td align="center">
-                    <% if art.plan_badge.present? %>
-                      <% art.plan_badge.each_char do |badge| %>
+                    <% if placement.badge.present? %>
+                      <% placement.badge.each_char do |badge| %>
                         <% next if ['M','B'].include?(badge) && !qualifies_for_mb && badge != 'O' %>
                         <span
                           style="

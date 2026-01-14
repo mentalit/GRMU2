@@ -17,7 +17,7 @@
         Pair: <%= aisle.pair.pair_nums %><br>
         Store: <%= aisle.store.store_num %><br>
         Sections: <%= aisle.sections.count %><br>
-        Articles: <%= aisle.articles.count %>
+        Articles: <%= aisle.planned_articles.count %>
         <%= link_to "Sections", aisle_sections_path(aisle)%>
     </div> 
     <% end %>
