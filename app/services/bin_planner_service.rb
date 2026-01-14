@@ -59,41 +59,51 @@ class BinPlannerService
   width_for:,
   length_for:,
   height_for:,
-  badge_for:
+  badge_for:,
+  allow_dt1_on_non_00: nil
 )
+  # 🔧 SINGLE SOURCE OF TRUTH: badge logic
+  effective_badge_for = lambda do |art, section|
+  return nil unless section
+
+  # 🚫 HARD GATE — small overruns NEVER badge
+  return nil if art.split_rssq.to_f < (art.palq.to_f * 1.7)
+
+  badge_for.call(art, section)
+end
+
   # 🔧 SINGLE SOURCE OF TRUTH: width logic
   effective_width_for = lambda do |art, section|
-    base_w = width_for.call(art, section)
-    return 0.0 unless base_w.to_f > 0
+  base_w = width_for.call(art, section)
+  return 0.0 unless base_w.to_f > 0
 
-    badge = badge_for.call(art, section)
-return base_w unless badge&.include?("M")
-
-mult = (art.split_rssq.to_f / art.palq.to_f).ceil
-return 0.0 if mult <= 0
-
-art.ul_width_gross.to_f * mult
-
+  # 🔴 HARD RSSQ OVERRIDE — applies to ALL badges
+  if art.split_rssq.to_f > art.palq.to_f * 1.3
+    return base_w.to_f * 2
   end
+
+  badge = effective_badge_for.call(art, section)
+  return base_w unless badge == "M"
+
+  mult = (art.split_rssq.to_f / art.palq.to_f).ceil
+  return 0.0 if mult <= 0
+
+  art.ul_width_gross.to_f * mult
+end
+
 
   queue = prepare_article_queue(width_for, length_for)
   sections = @aisle.sections.order(:section_num).to_a
   planned_count = 0
 
   # ------------------------------------------------------------
-  # PHASE 1 — GLOBAL LEVEL 00 (BOX A)
+  # PHASE 1 — GLOBAL LEVEL 00
   # ------------------------------------------------------------
   level_00_candidates = queue.select { |a| can_go_on_level_00.call(a) }
 
   section_bins = sections.map do |s|
     level_00 = s.levels.find_by(level_num: "00")
-
-    used_w =
-      if level_00
-        Placement.where(level_id: level_00.id).sum(:width_used).to_f
-      else
-        0.0
-      end
+    used_w = level_00 ? Placement.where(level_id: level_00.id).sum(:width_used).to_f : 0.0
 
     {
       section: s,
@@ -108,19 +118,17 @@ art.ul_width_gross.to_f * mult
     next if effective_width_for.call(art, nil).to_f <= 0
 
     bin = section_bins.find do |b|
-      w_s = effective_width_for.call(art, b[:section]).to_f
-      w_s > 0 &&
-        w_s <= b[:remaining_w] &&
+      w = effective_width_for.call(art, b[:section]).to_f
+      w > 0 &&
+        w <= b[:remaining_w] &&
         art.article_length.to_f <= b[:section].section_depth.to_f
     end
     next unless bin
 
-    w_s = effective_width_for.call(art, bin[:section]).to_f
     bin[:items] << art
-    bin[:remaining_w] -= w_s
+    bin[:remaining_w] -= effective_width_for.call(art, bin[:section]).to_f
   end
 
-  # Persist level 00
   section_bins.each do |bin|
     next if bin[:items].empty?
 
@@ -128,13 +136,11 @@ art.ul_width_gross.to_f * mult
     level = section.levels.find_or_create_by!(level_num: "00")
 
     bin[:items].each do |art|
-      badge = badge_for.call(art, section)
+      badge = effective_badge_for.call(art, section)
 
-      if plan_strategy == :opul && badge&.include?("O")
+      if plan_strategy == :opul && badge == "O"
         raise "OPUL article placed on level 00!"
       end
-
-      width_used = effective_width_for.call(art, section).to_f
 
       Placement.create!(
         article: art,
@@ -142,52 +148,52 @@ art.ul_width_gross.to_f * mult
         level: level,
         planned_qty: planned_assq_for(art),
         badge: badge,
-        width_used: width_used
+        width_used: effective_width_for.call(art, section).to_f
       )
 
-      # UI compatibility (unchanged behavior for display)
       art.update!(section_id: section.id, level_id: level.id)
-
       art.apply_planned_state!
       queue.delete(art)
       planned_count += 1
     end
 
-    current_articles = Placement.where(level_id: level.id).includes(:article).map(&:article)
-
-    new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
-    clr = current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
+    arts = Placement.where(level_id: level.id).includes(:article).map(&:article)
+    new_h = arts.map { |a| height_for.call(a) }.max.to_f
+    clr = arts.any? { |a| effective_badge_for.call(a, section).present? } ? 254.0 : 127.0
     level.update!(level_height: new_h + clr)
   end
 
   # ------------------------------------------------------------
-  # PHASE 2 — LEVELS 01+ (GLOBAL & GREEDY)
+  # PHASE 2 — LEVELS 01+
   # ------------------------------------------------------------
   section_height_map =
     sections.each_with_object({}) do |s, h|
-      l00_h = s.levels.find_by(level_num: "00")&.level_height.to_f
-      other_h = s.levels.where.not(level_num: "00").sum(:level_height).to_f
-      h[s.id] = s.section_height.to_f - (l00_h + other_h)
+      l00 = s.levels.find_by(level_num: "00")&.level_height.to_f
+      other = s.levels.where.not(level_num: "00").sum(:level_height).to_f
+      h[s.id] = s.section_height.to_f - (l00 + other)
     end
 
-  (1..19).each do |level_idx|
+  (1..19).each do |idx|
     break if queue.empty?
+    level_str = format("%02d", idx)
 
-    level_str = format("%02d", level_idx)
     eligible =
-  if plan_strategy == :non_opul
-    queue.reject { |a| a.dt == 1 }
-  else
-    queue
-  end
+      if plan_strategy == :non_opul
+        queue.reject { |a| a.dt == 1 }
+      elsif allow_dt1_on_non_00
+        queue.select { |a| allow_dt1_on_non_00.call(a) }
+      else
+        queue
+      end
+
     next if eligible.empty?
 
     bins =
       sections.map do |section|
-        existing_level = section.levels.find_by(level_num: level_str)
+        level = section.levels.find_by(level_num: level_str)
 
-        if existing_level
-          used_w = Placement.where(level_id: existing_level.id).sum(:width_used).to_f
+        if level
+          used_w = Placement.where(level_id: level.id).sum(:width_used).to_f
           remaining_w = section.section_width.to_f - used_w
         else
           next if section_height_map[section.id] <= 0
@@ -196,29 +202,26 @@ art.ul_width_gross.to_f * mult
 
         {
           section: section,
-          level: existing_level,
+          level: level,
           remaining_w: remaining_w,
           items: []
         }
       end.compact
 
-    eligible
-      .sort_by { |a| -effective_width_for.call(a, nil).to_f }
-      .each do |art|
-        next if effective_width_for.call(art, nil).to_f <= 0
+    eligible.sort_by { |a| -effective_width_for.call(a, nil).to_f }.each do |art|
+      next if effective_width_for.call(art, nil).to_f <= 0
 
-        bin = bins.find do |b|
-          w_s = effective_width_for.call(art, b[:section]).to_f
-          w_s > 0 &&
-            w_s <= b[:remaining_w] &&
-            art.article_length.to_f <= b[:section].section_depth.to_f
-        end
-        next unless bin
-
-        w_s = effective_width_for.call(art, bin[:section]).to_f
-        bin[:items] << art
-        bin[:remaining_w] -= w_s
+      bin = bins.find do |b|
+        w = effective_width_for.call(art, b[:section]).to_f
+        w > 0 &&
+          w <= b[:remaining_w] &&
+          art.article_length.to_f <= b[:section].section_depth.to_f
       end
+      next unless bin
+
+      bin[:items] << art
+      bin[:remaining_w] -= effective_width_for.call(art, bin[:section]).to_f
+    end
 
     bins.each do |bin|
       next if bin[:items].empty?
@@ -227,29 +230,28 @@ art.ul_width_gross.to_f * mult
       level = bin[:level] || section.levels.create!(level_num: level_str, level_height: 0)
 
       bin[:items].each do |art|
-        badge = badge_for.call(art, section)
-        width_used = effective_width_for.call(art, section).to_f
+        if allow_dt1_on_non_00 && art.dt == 1 && !allow_dt1_on_non_00.call(art)
+          raise "DT=1 article illegally placed on non-00 level (#{art.id})"
+        end
 
         Placement.create!(
           article: art,
           section: section,
           level: level,
           planned_qty: planned_assq_for(art),
-          badge: badge,
-          width_used: width_used
+          badge: effective_badge_for.call(art, section),
+          width_used: effective_width_for.call(art, section).to_f
         )
 
         art.update!(section_id: section.id, level_id: level.id)
-
         art.apply_planned_state!
         queue.delete(art)
         planned_count += 1
       end
 
-      current_articles = Placement.where(level_id: level.id).includes(:article).map(&:article)
-
-      new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
-      clr = current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
+      arts = Placement.where(level_id: level.id).includes(:article).map(&:article)
+      new_h = arts.map { |a| height_for.call(a) }.max.to_f
+      clr = arts.any? { |a| effective_badge_for.call(a, section).present? } ? 254.0 : 127.0
 
       diff = (new_h + clr) - level.level_height
       if diff > 0
@@ -261,6 +263,7 @@ art.ul_width_gross.to_f * mult
 
   { success: true, planned_count: planned_count, unplanned_count: queue.size }
 end
+
 
 
 
@@ -283,8 +286,7 @@ end
 
     badge_for = lambda do |art, section|
   return nil unless section &&
-                    art.dt == 1 &&
-                    art.split_rssq.to_f > art.palq.to_f * 1.6
+                    art.split_rssq.to_f > art.palq.to_f
 
   art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
 end
@@ -391,10 +393,9 @@ end
       can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
     end
 
-    badge_for = lambda do |art, section|
-  return "O" if is_opul.call(art)
-
-  return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
+   badge_for = lambda do |art, section|
+  return nil unless section &&
+                    art.split_rssq.to_f > art.palq.to_f
 
   art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
 end
@@ -423,9 +424,11 @@ end
     end
 
     badge_for = lambda do |art, section|
-      return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
-      art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
-    end
+  return nil unless section &&
+                    art.split_rssq.to_f > art.palq.to_f
+
+  art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+end
 
     base_section_planner(
       plan_strategy: plan_strategy,
