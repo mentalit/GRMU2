@@ -123,7 +123,7 @@
             <tbody>
               <% placements.each do |placement| %>
                 <% art = placement.article %>
-                <% qualifies_for_mb = art.split_rssq.to_f > art.palq.to_f %>
+                <% qualifies_for_mb = art.split_rssq.to_f >= art.palq.to_f * 1.6 %>
 
                 <tr style="border-top:1px solid #ddd">
                   <td><%= link_to art.artno, art %></td>

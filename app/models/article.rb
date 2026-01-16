@@ -10,6 +10,10 @@ class Article < ApplicationRecord
 
   has_many :placements, dependent: :destroy
 
+  def qualifies_for_mb?
+    split_rssq.to_f >= palq.to_f * 1.6
+  end
+
   BADGE_LABELS = {
     "M" => "Multiple Locations",
     "B" => "Behind",

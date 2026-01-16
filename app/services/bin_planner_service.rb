@@ -292,8 +292,9 @@ class BinPlannerService
     width_for =
       lambda do |art, section|
         if section &&
-             art.dt == 1 &&
-             art.split_rssq.to_f > art.palq.to_f &&
+              art.dt.in?([0, 1]) &&
+             art.split_rssq.to_f >= art.palq.to_f * 1.6
+ 
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
         end
@@ -305,8 +306,9 @@ class BinPlannerService
 
     badge_for = lambda do |art, section|
   return nil unless section &&
-                    art.dt == 1 &&
-                    art.split_rssq.to_f < art.palq.to_f * 1.07
+                     art.dt.in?([0, 1]) && 
+                    art.split_rssq.to_f >= art.palq.to_f * 1.6
+
 
   art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
 end
@@ -396,19 +398,21 @@ end
     width_for =
       lambda do |art, section|
         if section &&
-             art.dt == 1 &&
+              art.dt.in?([0, 1])  &&
              art.split_rssq.to_f > art.palq.to_f &&
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
         end
 
-        can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
+        (is_opul.call(art) || can_go_00.call(art)) ? art.ul_width_gross.to_f : art.cp_width.to_f
+
       end
 
     badge_for =
       lambda do |art, section|
         return "O" if is_opul.call(art)
-        return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
+        return nil unless section && art.dt == 1 && art.split_rssq.to_f >= art.palq.to_f * 1.6
+
 
         art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
       end
@@ -435,7 +439,7 @@ end
     width_for =
       lambda do |art, section|
         if section &&
-             art.dt == 1 &&
+              art.dt.in?([0, 1]) &&
              art.split_rssq.to_f > art.palq.to_f &&
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
@@ -445,11 +449,13 @@ end
       end
 
     badge_for =
-      lambda do |art, section|
-        return nil unless section && art.dt == 1 && art.split_rssq.to_f > art.palq.to_f
+  lambda do |art, section|
+    return nil unless section &&
+                      art.dt.in?([0, 1]) &&
+                      art.split_rssq.to_f >= art.palq.to_f * 1.6
 
-        art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
-      end
+    art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+  end
 
     base_section_planner(
       plan_strategy: plan_strategy,
