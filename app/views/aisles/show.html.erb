@@ -1,14 +1,30 @@
 <p style="color: green"><%= notice %></p>
 
-<div class="card col-2">
-  <%= render @aisle %>
+<div class="row">
 
- 
+  <div class="col-2">
+    <div class="card ">
+      <%= render @aisle %>
 
-  <div>
-    <%= link_to "Edit this aisle", edit_aisle_path(@aisle) %> |
-    <%= link_to "Back to aisles", pair_aisles_path(@aisle.pair) %>
+     
 
-    <%= button_to "Destroy this aisle", @aisle, method: :delete %>
+        <div>
+          <%= link_to "Edit this aisle", edit_aisle_path(@aisle) %> |
+          <%= link_to "Back to aisles", pair_aisles_path(@aisle.pair) %>
+
+          <%= button_to "Destroy this aisle", @aisle, method: :delete %>
+      </div>
+    </div>
 </div>
+
+<div class="col-10">
+  
+ Total Articles: <%= @aisle.articles.count %> <br>
+
+
+</div>
+
+
+
+
 </div>

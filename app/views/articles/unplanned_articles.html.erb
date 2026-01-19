@@ -9,7 +9,15 @@
 
 <% @unplanned.each do |x| %>
 	<div class="card">
-		<%= link_to x.artname_unicode, x  %>
+		
+		 <%= link_to x.artname_unicode, x  %> Article #:  <%= x.artno %> |
+
+		Split_rssq: <%= x.split_rssq %> |
+
+		rssq: <%= x.split_rssq %>
+		
 	</div>
+	
+	
 <% end %>
 </div>

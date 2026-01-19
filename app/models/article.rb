@@ -38,6 +38,25 @@ class Article < ApplicationRecord
     end
   end
 
+
+ def new_locs
+  placements
+    .includes(section: :aisle, level: {})
+    .map do |p|
+      [
+        p.section.aisle.aisle_num.to_s.rjust(2, "0"),
+        p.section.section_num.to_s.rjust(2, "0"),
+        p.level.level_num.to_s.rjust(2, "0")
+      ].join
+    end
+    .uniq
+end
+
+
+def new_locs_display
+  new_locs.join(" AND ")
+end
+
   # ✅ CSV-safe badge output
   def plan_badges_csv
     visible_plan_badges.join("|")

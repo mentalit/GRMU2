@@ -9,6 +9,9 @@ class AislesController < ApplicationController
 
   # GET /aisles/1 or /aisles/1.json
   def show
+    
+
+    
   end
 
   # GET /aisles/new

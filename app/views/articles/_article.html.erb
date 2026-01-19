@@ -141,9 +141,14 @@
 
   <p>
     <strong>New loc:</strong>
-   
-
+       <%= article.section.aisle.aisle_num %>-<%= article.section.section_num %>-<%= article.level.level_num %>
   <p>
+
+  <strong>Other locs:</strong>
+
+    <h1><%= article.new_locs_display %></h1>
+
+
     <strong>Split rssq:</strong>
     <%= article.split_rssq %>
   </p>

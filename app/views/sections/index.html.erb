@@ -2,7 +2,7 @@
 
 <p style="color: green"><%= notice %></p>
 
-<h3>Aisle <%= @aisle.aisle_num %></h3>      
+<h3>Aisle <%= link_to  @aisle.aisle_num, @aisle %></h3>      
 
 <%= form_with url: plan_aisle_sections_path(@aisle), method: :post, local: true do %>
 <div class="row">

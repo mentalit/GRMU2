@@ -40,6 +40,17 @@ class Aisle < ApplicationRecord
     end
   end
 
+
+  # def articles_in_aisle(hfb_or_pa)
+  #   @article_hfb_pa = []
+
+  #   @articles.each do |art|
+  #     @article_hfb_pa << art.hfb_or_pa
+  #   end
+
+  #   @article_hfb_pa.uniq
+  # end
+
   # ------------------------
   # Callbacks
   # ------------------------
