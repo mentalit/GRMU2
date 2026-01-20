@@ -141,7 +141,11 @@
 
   <p>
     <strong>New loc:</strong>
+    <% if article.new_loc.nil? %>
+      Unplanned
+    <% else %>
        <%= article.section.aisle.aisle_num %>-<%= article.section.section_num %>-<%= article.level.level_num %>
+    <% end %>
   <p>
 
   <strong>Other locs:</strong>

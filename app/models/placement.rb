@@ -13,7 +13,7 @@ class Placement < ApplicationRecord
   # end
 end
 
-# class Placement < ApplicationRecord
+# class Placement < ApplicationRecord 
 #   belongs_to :article   # ✅ REQUIRED
 #   belongs_to :section
 #   belongs_to :level, optional: true
