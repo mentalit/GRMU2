@@ -29,3 +29,14 @@ padding: 5vh;
 table, th, td {
   border: 1px solid black;
 }
+
+.edit_row {
+  display: flex !important; /* Ensures the row is in flex mode */
+  column-gap: 10px;         /* Explicitly sets the distance between columns */
+  background-color: DarkGrey ;
+}
+
+.edit_row .col-2 {
+  flex: 0 0 auto;           /* Prevents columns from shrinking/growing unexpectedly */
+  width: auto;              /* Allows the gap to dictate the space */
+}

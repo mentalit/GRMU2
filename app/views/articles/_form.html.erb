@@ -11,6 +11,9 @@
     </div>
   <% end %>
 
+<div class="row edit_row">
+
+  <div class="col-2">
   <div>
     <%= form.label :artno, style: "display: block" %>
     <%= form.number_field :artno %>
@@ -51,65 +54,79 @@
     <%= form.text_field :hfb %>
   </div>
 
-  <div>
+  
+</div>
+
+
+
+  <div class=" col-2">
+
+    <div>
     <%= form.label :expsale, style: "display: block" %>
     <%= form.text_field :expsale %>
   </div>
 
-  <div>
-    <%= form.label :pa, style: "display: block" %>
-    <%= form.text_field :pa %>
+    <div>
+      <%= form.label :pa, style: "display: block" %>
+      <%= form.text_field :pa %>
+    </div>
+
+    <div>
+      <%= form.label :salesmethod, style: "display: block" %>
+      <%= form.text_field :salesmethod %>
+    </div>
+
+    <div>
+      <%= form.label :rssq, style: "display: block" %>
+      <%= form.number_field :rssq %>
+    </div>
+
+    <div>
+      <%= form.label :sal_sol_indic, style: "display: block" %>
+      <%= form.text_field :sal_sol_indic %>
+    </div>
+
+    <div>
+      <%= form.label :mpq, style: "display: block" %>
+      <%= form.number_field :mpq %>
+    </div>
+
+    <div>
+      <%= form.label :palq, style: "display: block" %>
+      <%= form.number_field :palq %>
+    </div>
+
+    <div>
+      <%= form.label :dt, style: "display: block" %>
+      <%= form.number_field :dt %>
+    </div>
+
+    
+
   </div>
 
-  <div>
-    <%= form.label :salesmethod, style: "display: block" %>
-    <%= form.text_field :salesmethod %>
-  </div>
+  <div class=" col-2">
+
 
   <div>
-    <%= form.label :rssq, style: "display: block" %>
-    <%= form.number_field :rssq %>
-  </div>
+      <%= form.label :cp_height, style: "display: block" %>
+      <%= form.text_field :cp_height %>
+    </div>
 
-  <div>
-    <%= form.label :sal_sol_indic, style: "display: block" %>
-    <%= form.text_field :sal_sol_indic %>
-  </div>
+    <div>
+      <%= form.label :cp_length, style: "display: block" %>
+      <%= form.text_field :cp_length %>
+    </div>
 
-  <div>
-    <%= form.label :mpq, style: "display: block" %>
-    <%= form.number_field :mpq %>
-  </div>
+    <div>
+      <%= form.label :cp_width, style: "display: block" %>
+      <%= form.text_field :cp_width %>
+    </div>
 
-  <div>
-    <%= form.label :palq, style: "display: block" %>
-    <%= form.number_field :palq %>
-  </div>
-
-  <div>
-    <%= form.label :dt, style: "display: block" %>
-    <%= form.number_field :dt %>
-  </div>
-
-  <div>
-    <%= form.label :cp_height, style: "display: block" %>
-    <%= form.text_field :cp_height %>
-  </div>
-
-  <div>
-    <%= form.label :cp_length, style: "display: block" %>
-    <%= form.text_field :cp_length %>
-  </div>
-
-  <div>
-    <%= form.label :cp_width, style: "display: block" %>
-    <%= form.text_field :cp_width %>
-  </div>
-
-  <div>
-    <%= form.label :cp_diameter, style: "display: block" %>
-    <%= form.text_field :cp_diameter %>
-  </div>
+    <div>
+      <%= form.label :cp_diameter, style: "display: block" %>
+      <%= form.text_field :cp_diameter %>
+    </div>
 
   <div>
     <%= form.label :cp_weight_gross, style: "display: block" %>
@@ -135,7 +152,9 @@
     <%= form.label :ul_diamter, style: "display: block" %>
     <%= form.text_field :ul_diamter %>
   </div>
+</div>
 
+<div class=" col-2">
   <div>
     <%= form.label :new_assq, style: "display: block" %>
     <%= form.text_field :new_assq %>
@@ -145,7 +164,7 @@
     <%= form.label :new_loc, style: "display: block" %>
     <%= form.text_field :new_loc %>
   </div>
-
+ <div class=" col-2">
   <div>
     <%= form.label :split_rssq, style: "display: block" %>
     <%= form.number_field :split_rssq %>
@@ -174,5 +193,13 @@
   <div>
     <%= form.submit %>
   </div>
+</div>
+
 <% end %>
+
+
+
+
+
+
 
