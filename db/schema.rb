@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_11_173244) do
+ActiveRecord::Schema[7.1].define(version: 2026_01_20_210033) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -64,6 +64,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_11_173244) do
     t.bigint "level_id"
     t.boolean "part_planned", default: false, null: false
     t.integer "planned_quantity_remainder"
+    t.integer "effective_dt"
     t.index ["level_id"], name: "index_articles_on_level_id"
     t.index ["section_id"], name: "index_articles_on_section_id"
     t.index ["store_id"], name: "index_articles_on_store_id"

@@ -283,8 +283,8 @@ class BinPlannerService
   def plan_pallet(plan_strategy:)
     can_go_00 =
       lambda do |a|
-        a.dt == 1 ||
-          (a.dt == 0 &&
+        a.effective_dt == 1 ||
+          (a.effective_dt == 0 &&
             (a.weight_g.to_f > 18_143.7 ||
               a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
       end
@@ -292,7 +292,7 @@ class BinPlannerService
     width_for =
       lambda do |art, section|
         if section &&
-              art.dt.in?([0, 1]) &&
+              art.effective_dt.in?([0, 1]) &&
              art.split_rssq.to_f >= art.palq.to_f * 1.6
  
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
@@ -306,7 +306,7 @@ class BinPlannerService
 
     badge_for = lambda do |art, section|
   return nil unless section &&
-                     art.dt.in?([0, 1]) && 
+                     art.effective_dt.in?([0, 1]) && 
                     art.split_rssq.to_f >= art.palq.to_f * 1.6
 
 
@@ -329,12 +329,12 @@ end
 
     can_go_on_level_00 =
       lambda do |art|
-        art.dt == 1 || art.weight_g.to_f > heavy_weight
+        art.effective_dt == 1 || art.weight_g.to_f > heavy_weight
       end
 
-    width_for = ->(art, _section) { art.dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
-    length_for = ->(art) { art.dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
-    height_for = ->(art) { art.dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f }
+    width_for = ->(art, _section) { art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
+    length_for = ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
+    height_for = ->(art) { art.effective_dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f }
     badge_for = ->(_art, _section) { nil }
 
     define_singleton_method(:base_articles_scope) do
@@ -367,7 +367,7 @@ end
     badge_for = ->(_art, _section) { nil }
 
     define_singleton_method(:base_articles_scope) do
-      super().where(dt: 0)
+      super().where(effective_dt: 0)
     end
 
     base_section_planner(
@@ -389,8 +389,8 @@ end
       lambda do |a|
         return false if is_opul.call(a)
 
-        a.dt == 1 ||
-          (a.dt == 0 &&
+        a.effective_dt == 1 ||
+          (a.effective_dt == 0 &&
             (a.weight_g.to_f > 18_143.7 ||
               a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
       end
@@ -398,7 +398,7 @@ end
     width_for =
       lambda do |art, section|
         if section &&
-              art.dt.in?([0, 1])  &&
+              art.effective_dt.in?([0, 1])  &&
              art.split_rssq.to_f > art.palq.to_f &&
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
@@ -411,7 +411,7 @@ end
     badge_for =
       lambda do |art, section|
         return "O" if is_opul.call(art)
-        return nil unless section && art.dt == 1 && art.split_rssq.to_f >= art.palq.to_f * 1.6
+        return nil unless section && art.effective_dt == 1 && art.split_rssq.to_f >= art.palq.to_f * 1.6
 
 
         art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
@@ -430,8 +430,8 @@ end
   def plan_non_opul(plan_strategy:)
     can_go_00 =
       lambda do |a|
-        a.dt == 1 ||
-          (a.dt == 0 &&
+        a.effective_dt == 1 ||
+          (a.effective_dt == 0 &&
             (a.weight_g.to_f > 18_143.7 ||
               a.split_rssq.to_f >= (a.palq.to_f * 0.45)))
       end
@@ -439,7 +439,7 @@ end
     width_for =
       lambda do |art, section|
         if section &&
-              art.dt.in?([0, 1]) &&
+              art.effective_dt.in?([0, 1]) &&
              art.split_rssq.to_f > art.palq.to_f &&
              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
@@ -451,7 +451,7 @@ end
     badge_for =
   lambda do |art, section|
     return nil unless section &&
-                      art.dt.in?([0, 1]) &&
+                      art.effective_dt.in?([0, 1]) &&
                       art.split_rssq.to_f >= art.palq.to_f * 1.6
 
     art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
@@ -497,7 +497,7 @@ end
 
   if high_expsale_only?
     scope = scope.where("expsale > 5")
-    scope = scope.where(dt: 1) if high_expsale_require_dt1?
+    scope = scope.where(effective_dt: 1) if high_expsale_require_dt1?
   end
 
   # -----------------------------
@@ -530,7 +530,7 @@ end
   end
 
   def apply_voss_gates(scope)
-    scope = scope.where(dt: 0)
+    scope = scope.where(effective_dt: 0)
     scope = scope.where("cp_height <= ?", @params[:voss_cp_height_max]) if @params[:voss_cp_height_max].present?
     scope = scope.where("cp_length <= ?", @params[:voss_cp_length_max]) if @params[:voss_cp_length_max].present?
     scope = scope.where("cp_width <= ?", @params[:voss_cp_width_max]) if @params[:voss_cp_width_max].present?
@@ -543,7 +543,7 @@ end
 
   def apply_pallet_gates(scope)
     scope
-      .where(dt: 1)
+      .where(effective_dt: 1)
       .where(
         "ul_height_gross <= ? AND ul_length_gross <= ? AND ul_width_gross <= ?",
         @params[:voss_ul_height_max],

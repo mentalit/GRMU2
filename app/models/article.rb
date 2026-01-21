@@ -10,6 +10,9 @@ class Article < ApplicationRecord
 
   has_many :placements, dependent: :destroy
 
+  before_validation :set_effective_dt
+
+
   def qualifies_for_mb?
     split_rssq.to_f >= palq.to_f * 1.6
   end
@@ -79,6 +82,10 @@ end
 
   def set_split_rssq
   self.split_rssq = rssq if split_rssq.nil?
+end
+
+def set_effective_dt
+  self.effective_dt ||= dt
 end
 
 def total_planned_qty

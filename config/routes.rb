@@ -12,6 +12,7 @@ Rails.application.routes.draw do
     get :aisles, on: :member
     resources :articles do
       collection do
+        get :altered_articles
         get :unplanned_articles
         get :planned_articles
         get  :new_import

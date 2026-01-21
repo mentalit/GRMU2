@@ -17,6 +17,14 @@ class ArticlesController < ApplicationController
      @article = @store.articles.build
   end
 
+  def altered_articles
+
+    @effective_dts = Article.where("effective_dt IS DISTINCT FROM dt")
+
+    @split_rssq = Article.where("split_rssq IS DISTINCT FROM rssq")
+
+  end
+
   def new_import
   end
  

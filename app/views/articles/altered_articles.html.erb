@@ -1,0 +1,33 @@
+<h1>Altered Articles</h1>
+
+<div class="row">
+
+	<div class="col-6">
+		<h2>Articles with Changed DT's</h2>
+		<div class="row">
+		<% @effective_dts.each do |dt| %>
+			<div class="card col-3">
+				<%= link_to dt.artname_unicode, dt %> <br>
+				<%= dt.artno %>
+				</div>
+		<% end %>
+
+			</div>
+
+	</div>
+
+	<div class="col-6">
+		<h2>Articles with Changed RSSQ's</h2>
+			<div class="row">
+		<% @split_rssq.each do |split| %>
+		<div class="card col-3">
+			<%= link_to split.artname_unicode, split %> <br>
+				<%= split.artno %>
+		</div>
+		<% end %>
+	</div>
+</div>
+
+
+
+</div>
