@@ -40,3 +40,7 @@ table, th, td {
   flex: 0 0 auto;           /* Prevents columns from shrinking/growing unexpectedly */
   width: auto;              /* Allows the gap to dictate the space */
 }
+
+.border_div {
+  border-right: 1px solid black;
+}
