@@ -15,7 +15,18 @@
     <div class="card col-2">
         Aisle: <%= link_to aisle.aisle_num, aisle %><br>
         Pair: <%= aisle.pair.pair_nums %><br>
-        Store: <%= aisle.store.store_num %><br>
+        <%# Store:  aisle.store.store_num <br> %>
+        <% pas = aisle.articles.map(&:pa).uniq %>
+
+            Pa's:
+
+            <ul class="pa-list">
+              <% pas.each do |pa| %>
+               
+                  <%= link_to pa, "#", class: "pa-link" %> <br>
+              
+              <% end %>
+            </ul>
         Sections: <%= aisle.sections.count %><br>
         Articles: <%= aisle.planned_articles.count %>
         <%= link_to "Sections", aisle_sections_path(aisle)%>
