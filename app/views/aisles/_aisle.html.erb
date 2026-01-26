@@ -30,12 +30,10 @@
   </p>
 
   <ul class="pa-list">
-              <% @pas.uniq.each do |pa| %>
-               
-                  <%= link_to pa, "#", class: "pa-link" %> <br>
-              
-              <% end %>
-            </ul>
+  <% aisle.planned_articles.distinct.pluck(:pa).each do |pa| %>
+    <%= link_to pa, "#", class: "pa-link" %><br>
+  <% end %>
+</ul>
 
   <p>
     <%= link_to 'Sections', aisle_sections_path(aisle.id) %>

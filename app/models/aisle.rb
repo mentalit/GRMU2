@@ -40,16 +40,7 @@ class Aisle < ApplicationRecord
     end
   end
 
-   def get_pas
-
-      @pas = []
-
-      @aisle.articles.each do |x|
-        @pas << x.pa
-      end
-
-      @pas
-    end
+   
 
 
   # def articles_in_aisle(hfb_or_pa)

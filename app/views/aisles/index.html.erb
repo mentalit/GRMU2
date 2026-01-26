@@ -16,17 +16,15 @@
         Aisle: <%= link_to aisle.aisle_num, aisle %><br>
         Pair: <%= aisle.pair.pair_nums %><br>
         <%# Store:  aisle.store.store_num <br> %>
-        <% pas = aisle.articles.map(&:pa).uniq %>
+        <% pas = aisle.planned_articles.map(&:pa).uniq %>
 
             Pa's:
 
             <ul class="pa-list">
-              <% pas.each do |pa| %>
-               
-                  <%= link_to pa, "#", class: "pa-link" %> <br>
-              
-              <% end %>
-            </ul>
+  <% aisle.planned_articles.distinct.pluck(:pa).each do |pa| %>
+    <%= link_to pa, "#", class: "pa-link" %><br>
+  <% end %>
+</ul>
         Sections: <%= aisle.sections.count %><br>
         Articles: <%= aisle.planned_articles.count %>
         <%= link_to "Sections", aisle_sections_path(aisle)%>

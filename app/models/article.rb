@@ -117,6 +117,32 @@ def total_planned_qty
     end
   end
 
+  def unassign!
+  transaction do
+    old_level = level
+
+    # 1. Remove planning state
+    placements.destroy_all
+
+    # 2. Detach article physically
+    update!(
+      level_id: nil,
+      section_id: nil
+    )
+
+    # 3. Destroy orphaned level (if safe)
+    if old_level.present? &&
+       old_level.level_num != "00" &&
+       old_level.articles.reload.empty?
+
+      old_level.destroy!
+    end
+
+    # 4. Update planning flags
+    apply_planned_state!
+  end
+end
+
 
  
 end

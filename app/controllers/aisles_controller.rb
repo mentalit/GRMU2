@@ -1,20 +1,21 @@
 class AislesController < ApplicationController
   before_action :set_aisle, only: %i[ show edit update destroy ]
   before_action :get_pair, only: %i[new create index]
-  before_action :get_pas, only: %i[ show index ]
+  
 
   # GET /aisles or /aisles.json
   def index
 
     @aisles = @pair.aisles
-    @aisles = @pair.aisles.includes(:articles)
-    
+    @aisles = @pair.aisles.includes(:planned_articles)
   end
+    
+  
 
   # GET /aisles/1 or /aisles/1.json
   def show
     
-    
+    @aisle = Aisle.includes(:planned_articles).find(params[:id])
     
   end
 
@@ -89,17 +90,7 @@ end
       @pair = Pair.find(params[:pair_id])
     end
 
-   def get_pas
-
-      @pas = []
-
-
-      @aisle.articles.each do |x|
-        @pas << x.pa
-      end
-
-      @pas
-    end
+   
 
     # Only allow a list of trusted parameters through.
     def aisle_params
