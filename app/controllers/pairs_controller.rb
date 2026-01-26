@@ -20,6 +20,15 @@ class PairsController < ApplicationController
   def edit
   end
 
+  def import
+  Pairs::CsvImporter.new(
+    file: params[:file],
+    store: @store
+  ).call
+
+  redirect_to store_pairs_path(@store), notice: "Pairs imported successfully"
+end
+
   # POST /pairs or /pairs.json
   def create
     @pair = @store.pairs.build(pair_params)

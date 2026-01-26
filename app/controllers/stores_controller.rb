@@ -22,6 +22,23 @@ class StoresController < ApplicationController
     render "aisles/index"
   end
 
+  def import_pairs_csv
+  store = Store.find(params[:id])
+
+  if params[:file].blank?
+    redirect_to store_path(store), alert: "Please select a CSV file"
+    return
+  end
+
+  Pairs::CsvImporter.new(
+    file: params[:file],
+    store: store
+  ).call
+
+  redirect_to store_path(store), notice: "Pairs imported successfully"
+end
+
+
   # GET /stores/new
   def new
     @store = Store.new

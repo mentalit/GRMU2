@@ -26,3 +26,21 @@
   
     
 </div>
+
+
+<h3>Import Pairs</h3>
+
+<%= form_with url: import_pairs_csv_store_path(@store),
+              method: :post,
+              multipart: true,
+              local: true do |form| %>
+
+  <div>
+    <%= form.file_field :file, accept: ".csv", required: true %>
+  </div>
+
+  <div>
+    <%= form.submit "Upload Pairs CSV", class: "btn btn-primary" %>
+  </div>
+
+<% end %>
