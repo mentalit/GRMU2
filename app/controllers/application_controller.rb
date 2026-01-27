@@ -2,6 +2,8 @@
 class ApplicationController < ActionController::Base
   helper_method :current_store
 
+  before_action :authenticate_user!
+
   def current_store
     @current_store ||= begin
       if params[:store_id]
