@@ -1,11 +1,11 @@
 source "https://rubygems.org"
 
-ruby "3.1.2"
+ruby "3.2.4"
+
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.1.5", ">= 7.1.5.2"
 
-gem "nokogiri", "~> 1.15"
 
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
@@ -74,3 +74,5 @@ group :test do
 end
 
 gem "devise", "~> 5.0"
+
+gem "nokogiri", "~> 1.15"
