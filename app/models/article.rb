@@ -62,7 +62,7 @@ end
 
   # ✅ CSV-safe badge output
   def plan_badges_csv
-    visible_plan_badges.join("|")
+    visible_plan_badges.join
   end
 
   def effective_height

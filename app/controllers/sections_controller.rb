@@ -24,9 +24,9 @@ class SectionsController < ApplicationController
   end
 
  def export_csv
-  sections = @aisle.sections.includes(levels: :articles)
-
   csv_data = CSV.generate(headers: true) do |csv|
+
+    # FULL HEADER (same as your original export)
     csv << [
       "aisle_num",
       "section_num",
@@ -35,30 +35,48 @@ class SectionsController < ApplicationController
       "artname_unicode",
       "slid_h",
       "new_loc",
-      "badge",
-      
+      "badge"
     ]
 
-    sections.each do |section|
+    # Load everything needed in one go
+    placements = Placement
+                  .includes(:article, :section, :level)
+                  .where(section_id: @aisle.sections.select(:id))
+
+    placements.find_each do |placement|
+      art     = placement.article
+      section = placement.section
+      level   = placement.level
+
       aisle_num   = section.aisle.aisle_num
       section_num = section.section_num
+      level_num   = level.level_num
 
-      section.levels.each do |level|
-        level_num = level.level_num
+      # SAME qualify logic as UI
+      qualifies_for_mb = art.split_rssq.to_f >= art.palq.to_f * 1.6
 
-        level.articles.each do |article|
-          csv << [
-            aisle_num,
-            section_num,
-            level_num,
-            article.artno,
-            article.artname_unicode,
-            article.slid_h,
-            "#{aisle_num},#{section_num},#{level_num}",
-            article.plan_badges_csv
-          ]
+      # SAME badge filtering as UI
+      filtered_badge =
+        if placement.badge.present?
+          placement.badge.each_char.select do |badge|
+            next true if badge == "O"
+            next false if %w[M B].include?(badge) && !qualifies_for_mb
+            true
+          end.join
+        else
+          ""
         end
-      end
+
+      csv << [
+        aisle_num,
+        section_num,
+        level_num,
+        art.artno,
+        art.artname_unicode,
+        art.slid_h,
+        "#{aisle_num}0#{section_num}#{level_num}",
+        filtered_badge
+      ]
     end
   end
 
@@ -66,6 +84,7 @@ class SectionsController < ApplicationController
             filename: "aisle_#{@aisle.aisle_num}_articles.csv",
             type: "text/csv"
 end
+
 
 
 
