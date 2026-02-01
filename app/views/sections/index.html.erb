@@ -110,8 +110,11 @@
                 <th>DT</th>
                 <th>Weight</th>
                 <th>Width Used</th>
-                
-                <th>Length</th>
+
+                <th>Planned Height</th>
+                <th>Stack Info</th>
+                <th>Clearance Δ</th>
+
                 <th>PA</th>
                 <th>RSSQ</th>
                 <th>PALQ</th>
@@ -125,6 +128,23 @@
               <% placements.each do |placement| %>
                 <% art = placement.article %>
                 <% qualifies_for_mb = art.split_rssq.to_f >= art.palq.to_f * 1.6 %>
+
+                <%
+                  stacked_cp =
+                    art.effective_dt == 0 &&
+                    level.level_num != "00" &&
+                    (art.cp_length.to_f * 2) < section.section_depth.to_f
+
+                  planned_height =
+                    if stacked_cp
+                      (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+                    else
+                      art.effective_height.to_f
+                    end
+
+                  clearance_delta =
+                    level.level_height.to_f - planned_height
+                %>
 
                 <tr style="border-top:1px solid #ddd">
                   <td><%= link_to art.artno, art %></td>
@@ -148,7 +168,26 @@
                     <% end %>
                   </td>
 
-                  <td align="right"><%= art.effective_height.round(2) %></td>
+                  <td align="right">
+                    <%= planned_height.round(2) %> mm
+                  </td>
+
+                  <td align="center">
+                    <% if stacked_cp %>
+                      <span style="color:#0275d8;font-weight:bold">
+                        STACKED (<%= (art.split_rssq.to_f / 2.0).round(2) %>x)
+                      </span>
+                    <% else %>
+                      —
+                    <% end %>
+                  </td>
+
+                  <td align="right">
+                    <span style="color:<%= clearance_delta < 5 ? '#d9534f' : '#5cb85c' %>">
+                      <%= clearance_delta.round(1) %> mm
+                    </span>
+                  </td>
+
                   <td><%= art.pa %></td>
                   <td><%= art.split_rssq %></td>
                   <td><%= art.palq %></td>
@@ -156,7 +195,7 @@
                   <td align="center">
                     <% if placement.badge.present? %>
                       <% placement.badge.each_char do |badge| %>
-                        <% next if ['M','B'].include?(badge) && !qualifies_for_mb && badge != 'O' %>
+                        <% next if badge == 'M' && !qualifies_for_mb %>
                         <span
                           style="
                             padding:2px 6px;
@@ -200,3 +239,4 @@
 <% end %>
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
+

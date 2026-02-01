@@ -17,13 +17,20 @@ class BinPlannerService
 
     return { success: false, message: "Invalid mode: #{mode}" } unless respond_to?(plan_method, true)
 
-    send(plan_method, plan_strategy: mode.chomp('_mode').to_sym)
+    send(plan_method, plan_strategy: mode.chomp("_mode").to_sym)
   rescue => e
     Rails.logger.error("[PLANNER] CRITICAL FAILURE: #{e.message}\n#{e.backtrace.join("\n")}")
     { success: false, message: "Planning failed: #{e.message}" }
   end
 
   private
+
+ def double_depth_cp_stack?(art, section)
+  art.effective_dt == 0 &&
+    section.present? &&
+    art.level&.level_num != "00" &&
+    (art.cp_length.to_f * 2) < section.section_depth.to_f
+end
 
   def planned_assq_for(art)
     art.split_rssq.to_f
@@ -159,9 +166,15 @@ class BinPlannerService
       end
 
       current_articles =
-        Placement.where(level_id: level.id).includes(:article).map(&:article)
+        Placement.where(level_id: level.id)
+                 .includes(:article)
+                 .map(&:article)
 
-      new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
+      new_h =
+        current_articles
+          .map { |a| height_for.call(a, section) }
+          .max
+          .to_f
 
       clr =
         current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
@@ -261,9 +274,15 @@ class BinPlannerService
         end
 
         current_articles =
-          Placement.where(level_id: level.id).includes(:article).map(&:article)
+          Placement.where(level_id: level.id)
+                   .includes(:article)
+                   .map(&:article)
 
-        new_h = current_articles.map { |a| height_for.call(a) }.max.to_f
+        new_h =
+          current_articles
+            .map { |a| height_for.call(a, section) }
+            .max
+            .to_f
 
         clr =
           current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
@@ -293,32 +312,40 @@ class BinPlannerService
       lambda do |art, section|
         if section &&
               art.effective_dt.in?([0, 1]) &&
-             art.split_rssq.to_f >= art.palq.to_f * 1.6
- 
-             (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+              art.split_rssq.to_f >= art.palq.to_f * 1.6 &&
+              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
         end
 
         can_go_00.call(art) ? art.ul_width_gross.to_f : art.cp_width.to_f
       end
 
- 
+    badge_for =
+      lambda do |art, section|
+        return "B" if double_depth_cp_stack?(art, section)
 
-    badge_for = lambda do |art, section|
-  return nil unless section &&
-                     art.effective_dt.in?([0, 1]) && 
-                    art.split_rssq.to_f >= art.palq.to_f * 1.6
+        return nil unless section &&
+                          art.effective_dt.in?([0, 1]) &&
+                          art.split_rssq.to_f >= art.palq.to_f * 1.6
 
+        art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+      end
 
-  art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
-end
+    height_for =
+      lambda do |art, section|
+        if double_depth_cp_stack?(art, section)
+          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+        else
+          art.effective_height.to_f
+        end
+      end
 
     base_section_planner(
       plan_strategy: plan_strategy,
       can_go_on_level_00: can_go_00,
       width_for: width_for,
       length_for: ->(a) { can_go_00.call(a) ? a.ul_length_gross.to_f : a.cp_length.to_f },
-      height_for: ->(a) { a.effective_height.to_f },
+      height_for: height_for,
       badge_for: badge_for
     )
   end
@@ -334,8 +361,22 @@ end
 
     width_for = ->(art, _section) { art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
     length_for = ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
-    height_for = ->(art) { art.effective_dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f }
-    badge_for = ->(_art, _section) { nil }
+
+    height_for =
+      lambda do |art, section|
+        if double_depth_cp_stack?(art, section)
+          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+        else
+          art.effective_dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f
+        end
+      end
+
+    badge_for =
+      lambda do |art, section|
+        return "B" if double_depth_cp_stack?(art, section)
+
+        nil
+      end
 
     define_singleton_method(:base_articles_scope) do
       scope = super()
@@ -344,7 +385,7 @@ end
         if can_go_on_level_00.call(art)
           true
         else
-          height_for.call(art) < max_non_l00_level_height
+          height_for.call(art, nil) < max_non_l00_level_height
         end
       end
     end
@@ -363,8 +404,22 @@ end
     can_go_on_level_00 = ->(_art) { false }
     width_for = ->(art, _section) { art.cp_width.to_f }
     length_for = ->(art) { art.cp_length.to_f }
-    height_for = ->(art) { art.cp_height.to_f }
-    badge_for = ->(_art, _section) { nil }
+
+    height_for =
+      lambda do |art, section|
+        if double_depth_cp_stack?(art, section)
+          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+        else
+          art.cp_height.to_f
+        end
+      end
+
+    badge_for =
+      lambda do |art, section|
+        return "B" if double_depth_cp_stack?(art, section)
+
+        nil
+      end
 
     define_singleton_method(:base_articles_scope) do
       super().where(effective_dt: 0)
@@ -398,23 +453,32 @@ end
     width_for =
       lambda do |art, section|
         if section &&
-              art.effective_dt.in?([0, 1])  &&
-             art.split_rssq.to_f > art.palq.to_f &&
-             (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+              art.effective_dt.in?([0, 1]) &&
+              art.split_rssq.to_f > art.palq.to_f &&
+              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
         end
 
         (is_opul.call(art) || can_go_00.call(art)) ? art.ul_width_gross.to_f : art.cp_width.to_f
-
       end
 
     badge_for =
       lambda do |art, section|
         return "O" if is_opul.call(art)
+        return "B" if double_depth_cp_stack?(art, section)
+
         return nil unless section && art.effective_dt == 1 && art.split_rssq.to_f >= art.palq.to_f * 1.6
 
-
         art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+      end
+
+    height_for =
+      lambda do |art, section|
+        if double_depth_cp_stack?(art, section)
+          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+        else
+          art.effective_height.to_f
+        end
       end
 
     base_section_planner(
@@ -422,7 +486,7 @@ end
       can_go_on_level_00: can_go_00,
       width_for: width_for,
       length_for: ->(a) { is_opul.call(a) || can_go_00.call(a) ? a.ul_length_gross.to_f : a.cp_length.to_f },
-      height_for: ->(a) { a.effective_height.to_f },
+      height_for: height_for,
       badge_for: badge_for
     )
   end
@@ -440,8 +504,8 @@ end
       lambda do |art, section|
         if section &&
               art.effective_dt.in?([0, 1]) &&
-             art.split_rssq.to_f > art.palq.to_f &&
-             (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
+              art.split_rssq.to_f > art.palq.to_f &&
+              (art.ul_length_gross.to_f * 2 > section.section_depth.to_f)
           return art.ul_width_gross.to_f
         end
 
@@ -449,20 +513,31 @@ end
       end
 
     badge_for =
-  lambda do |art, section|
-    return nil unless section &&
-                      art.effective_dt.in?([0, 1]) &&
-                      art.split_rssq.to_f >= art.palq.to_f * 1.6
+      lambda do |art, section|
+        return "B" if double_depth_cp_stack?(art, section)
 
-    art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
-  end
+        return nil unless section &&
+                          art.effective_dt.in?([0, 1]) &&
+                          art.split_rssq.to_f >= art.palq.to_f * 1.6
+
+        art.ul_length_gross.to_f * 2 > section.section_depth.to_f ? "M" : "B"
+      end
+
+    height_for =
+      lambda do |art, section|
+        if double_depth_cp_stack?(art, section)
+          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+        else
+          art.effective_height.to_f
+        end
+      end
 
     base_section_planner(
       plan_strategy: plan_strategy,
       can_go_on_level_00: can_go_00,
       width_for: width_for,
       length_for: ->(a) { can_go_00.call(a) ? a.ul_length_gross.to_f : a.cp_length.to_f },
-      height_for: ->(a) { a.effective_height.to_f },
+      height_for: height_for,
       badge_for: badge_for
     )
   end
@@ -482,38 +557,37 @@ end
   end
 
   def base_articles_scope
-  scope = @aisle.pair.store.articles.where(planned: [false, nil])
+    scope = @aisle.pair.store.articles.where(planned: [false, nil])
 
-  # -----------------------------
-  # UNIVERSAL FILTERS (ALL MODES)
-  # -----------------------------
+    # -----------------------------
+    # UNIVERSAL FILTERS (ALL MODES)
+    # -----------------------------
 
-  scope = scope.where("artname_unicode ILIKE ?", "#{name_prefix}%") if name_prefix
-  scope = apply_pa_hfb_filter(scope)
+    scope = scope.where("artname_unicode ILIKE ?", "#{name_prefix}%") if name_prefix
+    scope = apply_pa_hfb_filter(scope)
 
-  if low_expsale_only?
-    scope = scope.where("expsale < 5")
+    if low_expsale_only?
+      scope = scope.where("expsale < 5")
+    end
+
+    if high_expsale_only?
+      scope = scope.where("expsale > 5")
+      scope = scope.where(effective_dt: 1) if high_expsale_require_dt1?
+    end
+
+    # -----------------------------
+    # MODE-SPECIFIC FILTERS
+    # -----------------------------
+
+    case planning_mode
+    when "voss_mode"
+      scope = apply_voss_gates(scope)
+    when "pallet_mode"
+      scope = apply_pallet_gates(scope)
+    end
+
+    scope
   end
-
-  if high_expsale_only?
-    scope = scope.where("expsale > 5")
-    scope = scope.where(effective_dt: 1) if high_expsale_require_dt1?
-  end
-
-  # -----------------------------
-  # MODE-SPECIFIC FILTERS
-  # -----------------------------
-
-  case planning_mode
-  when "voss_mode"
-    scope = apply_voss_gates(scope)
-  when "pallet_mode"
-    scope = apply_pallet_gates(scope)
-  end
-
-  scope
-end
-
 
   def planning_mode = @params[:mode]
   def name_prefix = @params[:name_prefix].presence
@@ -552,3 +626,4 @@ end
       )
   end
 end
+
