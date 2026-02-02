@@ -127,7 +127,6 @@
             <tbody>
               <% placements.each do |placement| %>
                 <% art = placement.article %>
-                <% qualifies_for_mb = art.split_rssq.to_f >= art.palq.to_f * 1.6 %>
 
                 <%
                   stacked_cp =
@@ -137,7 +136,7 @@
 
                   planned_height =
                     if stacked_cp
-                      (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+                      (art.split_rssq.to_f / art.mpq.to_f) * art.cp_height.to_f
                     else
                       art.effective_height.to_f
                     end
@@ -154,18 +153,7 @@
                   <td align="right"><%= art.weight_g %></td>
 
                   <td align="right">
-                    <% if placement.badge&.include?('M') && qualifies_for_mb %>
-                      <%= (
-                          art.ul_width_gross.to_f *
-                          (art.split_rssq.to_f / art.palq.to_f).ceil
-                        ) %>
-                    <% elsif placement.badge&.include?('O') %>
-                      <%= art.ul_width_gross %>
-                    <% elsif art.level.level_num == "00" %>
-                      <%= art.ul_width_gross %>
-                    <% else %>
-                      <%= art.cp_width %>
-                    <% end %>
+                    <%= placement.width_used.round(2) %>
                   </td>
 
                   <td align="right">
@@ -175,7 +163,7 @@
                   <td align="center">
                     <% if stacked_cp %>
                       <span style="color:#0275d8;font-weight:bold">
-                        STACKED (<%= (art.split_rssq.to_f / 2.0).round(2) %>x)
+                        STACKED (<%= (art.split_rssq.to_f / art.mpq.to_f).round(2) %>x)
                       </span>
                     <% else %>
                       —
@@ -195,7 +183,6 @@
                   <td align="center">
                     <% if placement.badge.present? %>
                       <% placement.badge.each_char do |badge| %>
-                        <% next if badge == 'M' && !qualifies_for_mb %>
                         <span
                           style="
                             padding:2px 6px;
@@ -239,4 +226,3 @@
 <% end %>
 
 <%= link_to "New section", new_aisle_section_path(@aisle) %>
-
