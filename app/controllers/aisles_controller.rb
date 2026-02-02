@@ -4,12 +4,14 @@ class AislesController < ApplicationController
   
 
   # GET /aisles or /aisles.json
-  def index
-
-    @aisles = @pair.aisles
+def index
+  if @pair
     @aisles = @pair.aisles.includes(:planned_articles)
+  else
+    @aisles = Aisle.includes(:planned_articles)
   end
-    
+end
+
   
 
   # GET /aisles/1 or /aisles/1.json
@@ -86,8 +88,8 @@ end
       @aisle = Aisle.find(params[:id])
     end
 
-    def get_pair
-      @pair = Pair.find(params[:pair_id])
+   def get_pair
+      @pair = Pair.find_by(id: params[:pair_id])
     end
 
    
@@ -96,4 +98,9 @@ end
     def aisle_params
       params.require(:aisle).permit(:aisle_num, :aisle_height, :aisle_depth, :aisle_section_width, :aisle_sections, :pair_id)
     end
+end
+
+
+def get_pair
+  @pair = Pair.find_by(id: params[:pair_id])
 end

@@ -1,10 +1,12 @@
 <p style="color: green"><%= notice %></p>
 
 <h1>
-  <% if defined?(@store) && @store.present? %>
+  <% if @store.present? %>
     All Aisles for Store <%= @store.store_num %>
-  <% else %>
+  <% elsif @pair.present? %>
     Aisles for Pair <%= @pair.pair_nums %>
+  <% else %>
+    All Aisles
   <% end %>
 </h1>
 

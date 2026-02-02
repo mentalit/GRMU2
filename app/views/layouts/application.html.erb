@@ -31,8 +31,8 @@
   </li>
 <% end %>
 
-      <li class="nav-item">
-        <a class="nav-link" href="#">Pricing</a>
+     <li class="nav-item active">
+        <%= link_to "Aisles", aisles_path, class: "nav-link" %>
       </li>
       <li class="nav-item">
         <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
@@ -44,3 +44,4 @@
     <%= yield %>
   </body>
 </html>
+

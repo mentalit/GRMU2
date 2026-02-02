@@ -9,6 +9,8 @@ Rails.application.routes.draw do
 
   root "stores#index"
 
+  resources :aisles, only: [:index]
+  
   resources :stores, shallow: true do
     member do
       post :import_pairs_csv
