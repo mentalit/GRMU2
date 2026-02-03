@@ -92,7 +92,8 @@ end
     lambda do |art, section|
       h = height_for.call(art, section).to_f
 
-      if double_depth_cp_stack?(art, section) &&
+     if plan_strategy != :countertop &&
+         double_depth_cp_stack?(art, section) &&
          art.effective_dt == 0 &&
          art.mpq.to_f > 1
         h = h * (2.0 / art.mpq.to_f)
