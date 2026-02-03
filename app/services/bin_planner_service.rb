@@ -65,7 +65,7 @@ end
     "count=#{ws.length} min=#{min.round(1)} median=#{mid.round(1)} max=#{max.round(1)} top10=[#{top}]"
   end
 
-  def base_section_planner(
+ def base_section_planner(
   plan_strategy:,
   can_go_on_level_00:,
   width_for:,
@@ -92,7 +92,6 @@ end
     lambda do |art, section|
       h = height_for.call(art, section).to_f
 
-      # Convert stacked CP height from (rssq/2) to (rssq/mpq)
       if double_depth_cp_stack?(art, section) &&
          art.effective_dt == 0 &&
          art.mpq.to_f > 1
@@ -195,7 +194,13 @@ end
     clr =
       current_articles.any? { |a| badge_for.call(a, section).present? } ? 127.0 : 254.0
 
-    level.update!(level_height: new_h + clr)
+    allowed_h =
+      section.section_height.to_f -
+      section.levels.where.not(level_num: "00").sum(:level_height).to_f
+
+    final_h = [new_h + clr, allowed_h].min
+
+    level.update!(level_height: final_h)
   end
 
   section_height_map =
@@ -215,15 +220,24 @@ end
       level_str = format("%02d", level_idx)
 
       eligible =
-  queue.reject { |a| can_go_on_level_00.call(a) }
-       .select do |a|
-         if plan_strategy == :opul
-           badge = badge_for.call(a, section)
-           badge&.include?("O") ? level_str == "01" : true
-         else
-           true
-         end
-       end
+        queue.reject { |a| can_go_on_level_00.call(a) }
+             .select do |a|
+               if plan_strategy == :opul
+                 badge = badge_for.call(a, section)
+                 badge&.include?("O") ? level_str == "01" : true
+               else
+                 true
+               end
+             end
+             .select do |a|
+               if plan_strategy.in?([:opul, :non_opul]) &&
+                  a.weight_g.to_f > 9071.85
+                 level_str == "01"
+               else
+                 true
+               end
+             end
+
       break if eligible.empty?
 
       existing_level = section.levels.find_by(level_num: level_str)
@@ -259,6 +273,35 @@ end
 
       next if bin[:items].empty?
 
+      existing_articles =
+        if existing_level
+          Placement.where(level_id: existing_level.id).includes(:article).map(&:article)
+        else
+          []
+        end
+
+      projected_articles = existing_articles + bin[:items]
+
+      projected_h =
+        projected_articles
+          .map { |a| effective_height_for.call(a, section) }
+          .max
+          .to_f
+
+      projected_clr =
+        projected_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
+
+      projected_target_h = projected_h + projected_clr
+
+      projected_diff =
+        if existing_level
+          projected_target_h - existing_level.level_height.to_f
+        else
+          projected_target_h
+        end
+
+      break if projected_diff > section_height_map[section.id]
+
       level =
         bin[:level] ||
           section.levels.create!(
@@ -267,6 +310,12 @@ end
           )
 
       bin[:items].each do |art|
+        if plan_strategy.in?([:opul, :non_opul]) &&
+           art.weight_g.to_f > 9071.85 &&
+           !["00", "01"].include?(level.level_num)
+          raise "Heavy article placed on invalid level #{level.level_num}"
+        end
+
         badge = badge_for.call(art, section)
         width_used = effective_width_for.call(art, section)
 
@@ -300,10 +349,13 @@ end
       clr =
         current_articles.any? { |a| badge_for.call(a, section).present? } ? 254.0 : 127.0
 
-      diff = (new_h + clr) - level.level_height
+      target_h = new_h + clr
+      diff = target_h - level.level_height
 
       if diff > 0
-        level.update!(level_height: new_h + clr)
+        break if diff > section_height_map[section.id]
+
+        level.update!(level_height: target_h)
         section_height_map[section.id] -= diff
       end
     end
