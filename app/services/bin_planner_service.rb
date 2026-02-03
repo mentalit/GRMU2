@@ -214,7 +214,16 @@ end
 
       level_str = format("%02d", level_idx)
 
-      eligible = queue.reject { |a| can_go_on_level_00.call(a) }
+      eligible =
+  queue.reject { |a| can_go_on_level_00.call(a) }
+       .select do |a|
+         if plan_strategy == :opul
+           badge = badge_for.call(a, section)
+           badge&.include?("O") ? level_str == "01" : true
+         else
+           true
+         end
+       end
       break if eligible.empty?
 
       existing_level = section.levels.find_by(level_num: level_str)
