@@ -418,54 +418,66 @@ end
   end
 
   def plan_countertop(plan_strategy:)
-    heavy_weight = 27_215.5
-    max_non_l00_level_height = 1092.2
+  heavy_weight = 27_215.5
+  max_non_l00_level_height = 1092.2
 
-    can_go_on_level_00 =
-      lambda do |art|
-        art.effective_dt == 1 || art.weight_g.to_f > heavy_weight
-      end
-
-    width_for = ->(art, _section) { art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
-    length_for = ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
-
-    height_for =
-      lambda do |art, section|
-        if double_depth_cp_stack?(art, section)
-          (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
-        else
-          art.effective_dt == 1 ? art.ul_height_gross.to_f : art.cp_height.to_f
-        end
-      end
-
-    badge_for =
-      lambda do |art, section|
-        return "B" if double_depth_cp_stack?(art, section)
-
-        nil
-      end
-
-    define_singleton_method(:base_articles_scope) do
-      scope = super()
-
-      scope.select do |art|
-        if can_go_on_level_00.call(art)
-          true
-        else
-          height_for.call(art, nil) < max_non_l00_level_height
-        end
-      end
+  can_go_on_level_00 =
+    lambda do |art|
+      art.effective_dt == 1 || art.weight_g.to_f > heavy_weight
     end
 
-    base_section_planner(
-      plan_strategy: plan_strategy,
-      can_go_on_level_00: can_go_on_level_00,
-      width_for: width_for,
-      length_for: length_for,
-      height_for: height_for,
-      badge_for: badge_for
-    )
+  width_for =
+    ->(art, _section) { art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
+
+  length_for =
+    ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
+
+  # ---------------------------------------------------
+  # COUNTERTOP HEIGHT RULE (DT=0 physical height only)
+  # ---------------------------------------------------
+  height_for =
+    lambda do |art, section|
+      if art.effective_dt == 0
+        # Physical stacked height ONLY (no clearance)
+        art.split_rssq.to_f * art.cp_height.to_f
+
+      elsif double_depth_cp_stack?(art, section)
+        (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+
+      else
+        art.ul_height_gross.to_f
+      end
+    end
+  # ---------------------------------------------------
+
+  badge_for =
+    lambda do |art, section|
+      return "B" if double_depth_cp_stack?(art, section)
+      nil
+    end
+
+  define_singleton_method(:base_articles_scope) do
+    scope = super()
+
+    scope.select do |art|
+      if can_go_on_level_00.call(art)
+        true
+      else
+        height_for.call(art, nil) < max_non_l00_level_height
+      end
+    end
   end
+
+  base_section_planner(
+    plan_strategy: plan_strategy,
+    can_go_on_level_00: can_go_on_level_00,
+    width_for: width_for,
+    length_for: length_for,
+    height_for: height_for,
+    badge_for: badge_for
+  )
+end
+
 
   def plan_voss(plan_strategy:)
     can_go_on_level_00 = ->(_art) { false }
