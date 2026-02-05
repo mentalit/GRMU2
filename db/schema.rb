@@ -98,7 +98,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_04_224111) do
     t.bigint "article_id", null: false
     t.bigint "section_id"
     t.bigint "level_id"
-    t.decimal "planned_qty", precision: 10, scale: 2, null: false 
+    t.decimal "planned_qty", precision: 10, scale: 2, null: false
     t.string "badge"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

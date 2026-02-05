@@ -4,11 +4,13 @@ class Pair < ApplicationRecord
 
   attr_accessor :skip_auto_aisles
 
-  after_create :create_aisles, unless: :skip_auto_aisles
+  after_create :create_aisles
 
   private
 
   def create_aisles
+    return if skip_auto_aisles == true   # 🔥 HARD STOP
+
     aisle_numbers.each do |num|
       aisles.create!(
         aisle_num: num,
@@ -24,4 +26,5 @@ class Pair < ApplicationRecord
     pair_nums.split(",").map(&:strip)
   end
 end
+
 

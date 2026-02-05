@@ -21,8 +21,8 @@ module Pairs
 
       rows
         .group_by { |row| pair_key(row["LOC"]) }
-        .each do |pair_num, records|
-          create_pair_with_aisle_and_sections(pair_num, records)
+        .each do |pair_num, pair_records|
+          create_pair_with_aisles(pair_num, pair_records)
         end
     end
 
@@ -31,35 +31,50 @@ module Pairs
     attr_reader :store
 
     # ------------------------
-    # PAIR + AISLE + SECTIONS
+    # PAIR + MULTI AISLES
     # ------------------------
 
-    def create_pair_with_aisle_and_sections(pair_num, records)
-      depth        = calculate_pair_depth(records)
-      section_nums = extract_section_numbers(records)
+    def create_pair_with_aisles(pair_num, pair_records)
+      depth = calculate_pair_depth(pair_records)
 
       pair = store.pairs.create!(
         pair_nums: pair_num,
         pair_depth: depth,
         pair_height: PAIR_HEIGHT,
         pair_section_width: PAIR_SECTION_WIDTH,
-        pair_sections: section_nums.size,
+        pair_sections: calculate_section_count(pair_records),
+        pair_division: extract_pair_divisions(pair_records).join(","),
         skip_auto_aisles: true
       )
 
+      pair_records
+  .select { |r| r["DIVISION"].to_s.strip != "" }
+      .group_by { |r| r["DIVISION"].strip }
+      .each do |division, division_records|
+        create_aisle_for_division(pair, division, division_records)
+      end
+
+    end
+
+    # ------------------------
+    # AISLE PER DIVISION
+    # ------------------------
+
+    def create_aisle_for_division(pair, division, records)
+      section_count = calculate_section_count(records)
+
       aisle = pair.aisles.create!(
-        aisle_num: pair.pair_nums,
-        aisle_depth: pair.pair_depth,              # 🔒 invariant
+        aisle_num: "#{pair.pair_nums} #{division}",
+        aisle_depth: pair.pair_depth,
         aisle_height: pair.pair_height,
         aisle_section_width: pair.pair_section_width,
-        aisle_sections: section_nums.size
+        aisle_sections: section_count
       )
 
-      # 🔥 SECTIONS ARE CREATED HERE — NO EXCEPTIONS
-      section_nums.each_with_index do |_sec, index|
+      (1..section_count).each do |section_num|
         aisle.sections.create!(
-          section_num: index + 1,
-          section_depth: aisle.aisle_depth,         # ALWAYS pair_depth
+          section_num: section_num,
+          section_depth: aisle.aisle_depth,
           section_height: aisle.aisle_height,
           section_width: aisle.aisle_section_width
         )
@@ -67,11 +82,15 @@ module Pairs
     end
 
     # ------------------------
-    # LOC PARSING
+    # HELPERS
     # ------------------------
 
+    def extract_pair_divisions(records)
+      records.map { |r| r["DIVISION"]&.strip }.compact.uniq
+    end
+
     def parse_loc(loc)
-      pair, section, depth = loc.to_s.split("-")
+      pair, section, depth = loc.to_s.strip.split("-")
       { pair: pair, section: section, depth: depth }
     end
 
@@ -83,16 +102,15 @@ module Pairs
     # DERIVATIONS
     # ------------------------
 
-    def extract_section_numbers(records)
-      sections =
-        records
-          .map { |row| parse_loc(row["LOC"])[:section] }
-          .uniq
-          .sort
+    def calculate_section_count(records)
+      face_rows =
+        records.count do |row|
+          parse_loc(row["LOC"])[:depth].to_s.strip == "00"
+        end
 
-      raise "NO SECTIONS FOUND IN CSV" if sections.empty?
+      return 1 if face_rows.zero?
 
-      sections
+      (face_rows / 3.0).ceil
     end
 
     def calculate_pair_depth(records)
@@ -108,3 +126,4 @@ module Pairs
     end
   end
 end
+
