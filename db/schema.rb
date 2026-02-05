@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2026_01_30_235516) do
+ActiveRecord::Schema[7.1].define(version: 2026_02_04_224111) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -65,6 +65,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_30_235516) do
     t.boolean "part_planned", default: false, null: false
     t.integer "planned_quantity_remainder"
     t.integer "effective_dt"
+    t.string "aisle_division"
     t.index ["level_id"], name: "index_articles_on_level_id"
     t.index ["section_id"], name: "index_articles_on_section_id"
     t.index ["store_id"], name: "index_articles_on_store_id"
@@ -88,6 +89,8 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_30_235516) do
     t.bigint "store_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "division"
+    t.string "pair_division"
     t.index ["store_id"], name: "index_pairs_on_store_id"
   end
 
@@ -95,7 +98,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_01_30_235516) do
     t.bigint "article_id", null: false
     t.bigint "section_id"
     t.bigint "level_id"
-    t.decimal "planned_qty", precision: 10, scale: 2, null: false
+    t.decimal "planned_qty", precision: 10, scale: 2, null: false 
     t.string "badge"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

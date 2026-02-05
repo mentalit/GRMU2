@@ -1,8 +1,11 @@
 class Aisle < ApplicationRecord
+  attr_accessor :skip_section_creation
   belongs_to :pair
   delegate :store, to: :pair
 
   has_many :sections, dependent: :destroy
+
+
 
   # ⚠️ Structural relationship (articles exist in sections)
   has_many :articles, through: :sections
@@ -14,7 +17,7 @@ class Aisle < ApplicationRecord
            through: :placements,
            source: :article
 
-  after_create :create_sections
+  # after_create :create_sections, unless: :skip_section_creation
   after_update_commit :sync_sections, if: :sync_sections?
 
   # ------------------------
@@ -58,16 +61,19 @@ class Aisle < ApplicationRecord
   # ------------------------
   private
 
-  def create_sections
-    (1..aisle_sections.to_i).each do |sec|
-      sections.create!(
-        section_num: sec,
-        section_depth: aisle_depth,
-        section_height: aisle_height,
-        section_width: aisle_section_width
-      )
-    end
+ def create_sections
+  return if sections.exists?          # 🔒 idempotent
+  return if aisle_sections.to_i <= 0
+
+  (1..aisle_sections).each do |sec|
+    sections.create!(
+      section_num: sec,
+      section_depth: aisle_depth,
+      section_height: aisle_height,
+      section_width: aisle_section_width
+    )
   end
+end
 
   def sync_sections
     sections.update_all(
