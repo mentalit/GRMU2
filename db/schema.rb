@@ -24,6 +24,10 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_08_225339) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "aisle_compartment"
+    t.string "type"
+    t.string "loc"
+    t.string "compartment"
+    t.string "bay"
     t.index ["pair_id"], name: "index_aisles_on_pair_id"
   end
 
@@ -93,6 +97,7 @@ ActiveRecord::Schema[7.1].define(version: 2026_02_08_225339) do
     t.datetime "updated_at", null: false
     t.string "division"
     t.string "pair_division"
+    t.string "pair_compartment"
     t.integer "maxlength"
     t.index ["store_id"], name: "index_pairs_on_store_id"
   end

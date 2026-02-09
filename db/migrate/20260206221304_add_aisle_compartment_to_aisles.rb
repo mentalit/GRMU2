@@ -3,3 +3,4 @@ class AddAisleCompartmentToAisles < ActiveRecord::Migration[7.1]
     add_column :aisles, :aisle_compartment, :string
   end
 end
+    

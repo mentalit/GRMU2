@@ -7,7 +7,6 @@ class SectionsController < ApplicationController
   # GET /sections or /sections.json
   def index
     @sections = @aisle.sections.includes(levels: :articles)
-
   end
 
   # GET /sections/1 or /sections/1.json
@@ -91,44 +90,34 @@ end
 
   def plan
     # The @aisle object is already available via the before_action :get_aisle
-    # which is called because :plan is listed in the 'only' array.
-
-    # 1. Instantiate the service with the required objects and parameters.
-    # The BinPlannerService must be created in app/services/bin_planner_service.rb
     service = BinPlannerService.new(aisle: @aisle, params: params)
     
-    # 2. Execute the service.
     result = service.call
 
-    # 3. Handle the result.
     if result[:success]
-      # A successful plan should ideally redirect to a page showing the new layout
-      # (e.g., the index page for sections in that aisle).
       redirect_to aisle_sections_path(@aisle), 
                   notice: "Bin planning completed successfully in #{params[:mode].humanize} mode."
     else
-      # If the service failed (e.g., validation error, logic error)
       flash.alert = "Bin planning failed: #{result[:message]}"
-      # Redirect back to the form's original page to show the error
       redirect_to aisle_sections_path(@aisle), status: :unprocessable_entity
     end
   rescue NameError => e
-    # Catching a NameError is a good idea initially if the service or its dependencies 
-    # haven't been fully defined yet.
     redirect_to aisle_sections_path(@aisle), 
                 alert: "Error: BinPlannerService not ready. #{e.message}"
   end
 
   def unassign
-    # Find the article by the ID passed in the route
     article = Article.find(params[:id])
     
-    # Update the article to be unplanned and clear its section assignment
     article.placements.destroy_all
-    article.apply_planned_state!
+
+    article.update!(
+      planned: false,
+      section_id: nil,
+      level_id: nil
+    )
     
-    # Redirect back to the sections index page for the current aisle
-    redirect_to aisle_sections_path(article.section.aisle), notice: "Article #{article.artno} unassigned successfully."
+    redirect_to aisle_sections_path(article.section&.aisle), notice: "Article #{article.artno} unassigned successfully."
   rescue ActiveRecord::RecordNotFound
     redirect_back fallback_location: root_path, alert: "Article not found."
   rescue => e
@@ -142,16 +131,19 @@ end
   ActiveRecord::Base.transaction do
     Article.where(id: Placement.where(section_id: section_ids).select(:article_id))
        .find_each do |article|
-  article.placements.destroy_all
-  article.apply_planned_state!
-end
+        article.placements.destroy_all
 
+        article.update!(
+          planned: false,
+          section_id: nil,
+          level_id: nil
+        )
+      end
 
     Level.where(section_id: section_ids)
          .where.not(level_num: "00")
          .find_each(&:destroy)
 
-    # If height is NOT NULL in DB, use 0
     Level.where(section_id: section_ids, level_num: "00")
          .update_all(level_height: 0)
   end
@@ -164,8 +156,6 @@ end
 
 
 
-  # ACTION ADDED: POST /aisles/:aisle_id/sections/plan (Handles the planning process)
-  
   # POST /sections or /sections.json
   def create
     @section = @aisle.sections.build(section_params)
@@ -205,7 +195,7 @@ end
   end
 
   private
-    # Use callbacks to share common setup or constraints between actions.
+
     def set_section
       @section = Section.find(params[:id])
     end
@@ -214,8 +204,8 @@ end
       @aisle = Aisle.find(params[:aisle_id])
     end
 
-    # Only allow a list of trusted parameters through.
     def section_params
       params.require(:section).permit(:section_num, :section_depth, :section_height, :section_width, :aisle_id)
     end
 end
+
