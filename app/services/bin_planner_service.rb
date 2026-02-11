@@ -87,12 +87,11 @@ end
       art.ul_width_gross.to_f * mult
     end
 
-  # -------- MPQ HEIGHT WRAPPER (GLOBAL) --------
   effective_height_for =
     lambda do |art, section|
       h = height_for.call(art, section).to_f
 
-     if plan_strategy != :countertop &&
+      if plan_strategy != :countertop &&
          double_depth_cp_stack?(art, section) &&
          art.effective_dt == 0 &&
          art.mpq.to_f > 1
@@ -101,7 +100,6 @@ end
 
       h
     end
-  # --------------------------------------------
 
   queue = prepare_article_queue(effective_width_for, length_for)
   sections = @aisle.sections.order(:section_num).to_a
@@ -150,58 +148,68 @@ end
     bin[:remaining_w] -= w_s
   end
 
+  # --- Level 00 Processing & Placeholder Logic ---
   section_bins.each do |bin|
-    next if bin[:items].empty?
-
     section = bin[:section]
-    level = section.levels.find_or_create_by!(level_num: "00")
+    is_filtered_run = @params[:filter_value].present? && %w[PA HFB].include?(@params[:filter_type])
 
-    bin[:items].each do |art|
-      badge = badge_for.call(art, section)
+    if bin[:items].any?
+      level = section.levels.find_or_create_by!(level_num: "00")
 
-      if plan_strategy == :opul && badge&.include?("O")
-        raise "OPUL article placed on level 00!"
+      bin[:items].each do |art|
+        badge = badge_for.call(art, section)
+
+        if plan_strategy == :opul && badge&.include?("O")
+          raise "OPUL article placed on level 00!"
+        end
+
+        width_used = effective_width_for.call(art, section).to_f
+
+        Placement.create!(
+          article: art,
+          section: section,
+          level: level,
+          planned_qty: planned_assq_for(art),
+          badge: badge,
+          width_used: width_used
+        )
+
+        art.update!(section_id: section.id, level_id: level.id)
+        art.apply_planned_state!
+
+        queue.delete(art)
+        planned_count += 1
       end
 
-      width_used = effective_width_for.call(art, section).to_f
+      current_articles =
+        Placement.where(level_id: level.id)
+                 .includes(:article)
+                 .map(&:article)
 
-      Placement.create!(
-        article: art,
-        section: section,
-        level: level,
-        planned_qty: planned_assq_for(art),
-        badge: badge,
-        width_used: width_used
-      )
+      new_h =
+        current_articles
+          .map { |a| effective_height_for.call(a, section) }
+          .max
+          .to_f
 
-      art.update!(section_id: section.id, level_id: level.id)
-      art.apply_planned_state!
+      clr =
+        current_articles.any? { |a| badge_for.call(a, section).present? } ? 127.0 : 254.0
 
-      queue.delete(art)
-      planned_count += 1
+      allowed_h =
+        section.section_height.to_f -
+        section.levels.where.not(level_num: "00").sum(:level_height).to_f
+
+      final_h = [new_h + clr, allowed_h].min
+
+      level.update!(level_height: final_h)
+
+    elsif is_filtered_run && bin[:items].empty?
+      # FIX: Use Placement.where().exists? instead of level.placements
+      level = section.levels.find_or_create_by!(level_num: "00")
+      unless Placement.where(level_id: level.id).exists?
+        level.update!(level_height: 1254.0)
+      end
     end
-
-    current_articles =
-      Placement.where(level_id: level.id)
-               .includes(:article)
-               .map(&:article)
-
-    new_h =
-      current_articles
-        .map { |a| effective_height_for.call(a, section) }
-        .max
-        .to_f
-
-    clr =
-      current_articles.any? { |a| badge_for.call(a, section).present? } ? 127.0 : 254.0
-
-    allowed_h =
-      section.section_height.to_f -
-      section.levels.where.not(level_num: "00").sum(:level_height).to_f
-
-    final_h = [new_h + clr, allowed_h].min
-
-    level.update!(level_height: final_h)
   end
 
   section_height_map =
@@ -212,6 +220,7 @@ end
       h[s.id] = s.section_height.to_f - (l00_h + other_h)
     end
 
+  # --- Non-00 Level Planning ---
   sections.each do |section|
     break if queue.empty?
 
@@ -248,7 +257,7 @@ end
           section.section_width.to_f -
             Placement.where(level_id: existing_level.id).sum(:width_used).to_f
         else
-          break if section_height_map[section.id] <= 0
+          break if section_height_map[section.id].to_f <= 0
           section.section_width.to_f
         end
 
@@ -420,51 +429,62 @@ end
   def plan_countertop(plan_strategy:)
   heavy_weight = 27_215.5
   max_non_l00_level_height = 1092.2
+  grouping_tolerance = 50.0
 
-  can_go_on_level_00 =
-    lambda do |art|
-      art.effective_dt == 1 || art.weight_g.to_f > heavy_weight
-    end
+  can_go_on_level_00 = ->(art) { art.effective_dt == 1 || art.weight_g.to_f > heavy_weight }
+  length_for = ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
 
-  width_for =
-    ->(art, _section) { art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f }
+  # Calculate height for comparison
+  calc_h = lambda do |art|
+    art.effective_dt == 1 ? art.ul_height_gross.to_f : (art.split_rssq.to_f * art.cp_height.to_f)
+  end
 
-  length_for =
-    ->(art) { art.effective_dt == 1 ? art.ul_length_gross.to_f : art.cp_length.to_f }
+  # --- THE GATEKEEPER ---
+  # This uses section[:items], which is a standard Array in the bin planner.
+  # No database calls = No errors.
+  width_for = lambda do |art, bin_hash|
+    actual_w = art.effective_dt == 1 ? art.ul_width_gross.to_f : art.cp_width.to_f
 
-  # ---------------------------------------------------
-  # COUNTERTOP HEIGHT RULE (DT=0 physical height only)
-  # ---------------------------------------------------
-  height_for =
-    lambda do |art, section|
-      if art.effective_dt == 0
-        # Physical stacked height ONLY (no clearance)
-        art.split_rssq.to_f * art.cp_height.to_f
+    # 'bin_hash' is the current section the planner is testing.
+    # It has an :items array containing articles already placed there.
+    if bin_hash.is_a?(Hash) && bin_hash[:items]&.any?
+      anchor_art = bin_hash[:items].first
+      
+      # 1. AT ALL COSTS: DT=1 and DT=0 can NEVER be in the same section
+      return 99_999.0 if art.effective_dt != anchor_art.effective_dt
 
-      elsif double_depth_cp_stack?(art, section)
-        (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
-
-      else
-        art.ul_height_gross.to_f
+      # 2. AT ALL COSTS: Height must match (990mm cannot be with 180mm)
+      if (calc_h.call(anchor_art) - calc_h.call(art)).abs > grouping_tolerance
+        return 99_999.0
       end
     end
-  # ---------------------------------------------------
 
-  badge_for =
-    lambda do |art, section|
-      return "B" if double_depth_cp_stack?(art, section)
-      nil
+    actual_w
+  end
+
+  height_for = lambda do |art, section|
+    if art.effective_dt == 0
+      art.split_rssq.to_f * art.cp_height.to_f
+    elsif double_depth_cp_stack?(art, section)
+      (art.split_rssq.to_f / 2.0) * art.cp_height.to_f
+    else
+      art.ul_height_gross.to_f
     end
+  end
 
-  define_singleton_method(:base_articles_scope) do
-    scope = super()
+  badge_for = ->(art, section) { double_depth_cp_stack?(art, section) ? "B" : nil }
 
-    scope.select do |art|
-      if can_go_on_level_00.call(art)
-        true
-      else
-        height_for.call(art, nil) < max_non_l00_level_height
-      end
+  # --- QUEUE ORDERING ---
+  # Sort by DT (Unit Loads first), then Height (Taller first), then Weight.
+  define_singleton_method(:prepare_article_queue) do |w_proc, l_proc|
+    queue = super(w_proc, l_proc)
+    queue.sort_by do |art|
+      h = calc_h.call(art)
+      [
+        art.effective_dt == 1 ? 0 : 1,     # DT=1 takes priority
+        -(h / grouping_tolerance).floor,   # Tallest groups first
+        -art.weight_g.to_f                 # Heaviest first
+      ]
     end
   end
 
